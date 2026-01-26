@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -8,6 +7,16 @@ __pycache__/
 .Python
 pip-log.txt
 pip-delete-this-directory.txt
+
+# Virtual Environments (should be outside repo, but just in case)
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+*.virtualenv
 
 # Environment variables
 .env
@@ -31,12 +40,17 @@ build/
 .next/
 out/
 
-# Logs
+# Logs (all log files and directories)
 logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+combined.log
+error.log
+access.log
 
 # Database
 *.sqlite

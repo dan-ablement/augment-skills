@@ -325,5 +325,433 @@ app.listen(3000);  // NEVER! Use config
 
 ---
 
+---
+
+## 🐍 Python Virtual Environment Management
+
+### Rule: Keep virtual environments OUTSIDE the repository
+
+**Never create virtual environments inside the project directory.** This keeps the repository clean and prevents accidentally committing large dependency files.
+
+### Implementation:
+
+**✅ CORRECT - Centralized virtual environments:**
+
+```bash
+# Create a central directory for all virtual environments
+mkdir -p ~/.virtualenvs
+
+# Create virtual environment for this project
+python -m venv ~/.virtualenvs/augment-skills
+
+# Activate virtual environment
+source ~/.virtualenvs/augment-skills/bin/activate  # macOS/Linux
+# or
+~/.virtualenvs/augment-skills/Scripts/activate  # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**❌ INCORRECT - Virtual environment in repo:**
+```bash
+# NEVER do this
+python -m venv venv  # Creates venv/ in project directory
+python -m venv .venv  # Creates .venv/ in project directory
+```
+
+### Recommended tools:
+
+#### Option 1: Manual central directory
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+export WORKON_HOME=~/.virtualenvs
+
+# Create alias for easy activation
+alias activate-augment="source ~/.virtualenvs/augment-skills/bin/activate"
+```
+
+#### Option 2: virtualenvwrapper (Recommended)
+```bash
+# Install virtualenvwrapper
+pip install virtualenvwrapper
+
+# Add to ~/.bashrc or ~/.zshrc
+export WORKON_HOME=~/.virtualenvs
+source /usr/local/bin/virtualenvwrapper.sh
+
+# Create virtual environment
+mkvirtualenv augment-skills
+
+# Activate (from anywhere)
+workon augment-skills
+
+# Deactivate
+deactivate
+```
+
+#### Option 3: pyenv + pyenv-virtualenv
+```bash
+# Install pyenv and pyenv-virtualenv
+brew install pyenv pyenv-virtualenv
+
+# Create virtual environment
+pyenv virtualenv 3.9.0 augment-skills
+
+# Activate
+pyenv activate augment-skills
+```
+
+### .gitignore must include:
+```
+# Virtual environments (just in case)
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+```
+
+### Documentation requirement:
+Every Python project must include setup instructions in README.md:
+
+```markdown
+## Python Setup
+
+### Create virtual environment (outside repo)
+```bash
+python -m venv ~/.virtualenvs/augment-skills
+source ~/.virtualenvs/augment-skills/bin/activate
+```
+
+### Install dependencies
+```bash
+pip install -r requirements.txt
+```
+```
+
+---
+
+## 📊 Logging Standards
+
+### Rule: Implement consistent, structured logging for debugging and monitoring
+
+All applications must use a standardized logging structure with appropriate log levels, context, and formatting.
+
+### Log Levels (use appropriately):
+
+- **DEBUG**: Detailed diagnostic information (development only)
+- **INFO**: General informational messages (normal operations)
+- **WARNING**: Warning messages (something unexpected but handled)
+- **ERROR**: Error messages (something failed but app continues)
+- **CRITICAL**: Critical errors (app may crash)
+
+### Implementation:
+
+#### Node.js - Using Winston
+
+**config/logger.config.js:**
+```javascript
+const winston = require('winston');
+const path = require('path');
+
+// Define log format
+const logFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.errors({ stack: true }),
+  winston.format.splat(),
+  winston.format.json()
+);
+
+// Console format (human-readable for development)
+const consoleFormat = winston.format.combine(
+  winston.format.colorize(),
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+    let msg = `${timestamp} [${level}]: ${message}`;
+    if (Object.keys(meta).length > 0) {
+      msg += ` ${JSON.stringify(meta)}`;
+    }
+    return msg;
+  })
+);
+
+// Create logger
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: logFormat,
+  defaultMeta: { service: 'augment-skills' },
+  transports: [
+    // Write all logs to console
+    new winston.transports.Console({
+      format: process.env.NODE_ENV === 'production' ? logFormat : consoleFormat,
+    }),
+    // Write all logs to combined.log
+    new winston.transports.File({
+      filename: path.join('logs', 'combined.log'),
+      maxsize: 10485760, // 10MB
+      maxFiles: 5,
+    }),
+    // Write errors to error.log
+    new winston.transports.File({
+      filename: path.join('logs', 'error.log'),
+      level: 'error',
+      maxsize: 10485760, // 10MB
+      maxFiles: 5,
+    }),
+  ],
+});
+
+module.exports = logger;
+```
+
+**Usage in code:**
+```javascript
+const logger = require('./config/logger.config');
+
+// Info logging
+logger.info('User logged in', { userId: 123, email: 'user@example.com' });
+
+// Error logging with context
+logger.error('Failed to import CSV', {
+  error: err.message,
+  stack: err.stack,
+  filename: 'employees.csv',
+  userId: req.user.id,
+});
+
+// Warning
+logger.warn('Large file upload detected', {
+  fileSize: fileSize,
+  maxSize: config.upload.maxFileSize,
+});
+
+// Debug (only in development)
+logger.debug('Database query executed', {
+  query: sql,
+  duration: queryTime,
+});
+```
+
+#### Python - Using structlog
+
+**config/logger_config.py:**
+```python
+import logging
+import structlog
+from pathlib import Path
+import os
+
+# Create logs directory
+Path('logs').mkdir(exist_ok=True)
+
+# Configure standard logging
+logging.basicConfig(
+    format="%(message)s",
+    level=os.getenv('LOG_LEVEL', 'INFO'),
+    handlers=[
+        logging.FileHandler('logs/combined.log'),
+        logging.StreamHandler(),
+    ]
+)
+
+# Configure structlog
+structlog.configure(
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.processors.JSONRenderer() if os.getenv('NODE_ENV') == 'production'
+        else structlog.dev.ConsoleRenderer(),
+    ],
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
+def get_logger(name: str):
+    """Get a configured logger instance"""
+    return structlog.get_logger(name)
+```
+
+**Usage in code:**
+```python
+from config.logger_config import get_logger
+
+logger = get_logger(__name__)
+
+# Info logging
+logger.info('user_logged_in', user_id=123, email='user@example.com')
+
+# Error logging with context
+try:
+    import_csv(file)
+except Exception as e:
+    logger.error(
+        'csv_import_failed',
+        error=str(e),
+        filename='employees.csv',
+        user_id=user.id,
+        exc_info=True
+    )
+
+# Warning
+logger.warning(
+    'large_file_upload',
+    file_size=file_size,
+    max_size=config.MAX_FILE_SIZE
+)
+
+# Debug
+logger.debug(
+    'database_query',
+    query=sql,
+    duration=query_time
+)
+```
+
+### Logging best practices:
+
+#### 1. **Always include context**
+```javascript
+// ✅ GOOD - Includes context
+logger.error('CSV import failed', {
+  filename: 'employees.csv',
+  rowNumber: 42,
+  error: err.message,
+  userId: req.user.id,
+});
+
+// ❌ BAD - No context
+logger.error('Import failed');
+```
+
+#### 2. **Use structured logging (key-value pairs)**
+```javascript
+// ✅ GOOD - Structured
+logger.info('Data imported', {
+  source: 'google_sheets',
+  rowCount: 150,
+  duration: 2.3,
+});
+
+// ❌ BAD - Unstructured string
+logger.info('Imported 150 rows from Google Sheets in 2.3s');
+```
+
+#### 3. **Log at appropriate levels**
+```javascript
+// ✅ GOOD
+logger.debug('Cache hit', { key: 'user:123' });  // Development only
+logger.info('User logged in', { userId: 123 });  // Normal operation
+logger.warn('Rate limit approaching', { current: 95, limit: 100 });  // Unexpected
+logger.error('Database connection failed', { error: err });  // Error
+logger.critical('Out of memory', { available: 0 });  // Critical
+
+// ❌ BAD - Everything as INFO
+logger.info('Cache hit');
+logger.info('Database connection failed');
+```
+
+#### 4. **Never log secrets**
+```javascript
+// ✅ GOOD - Secrets redacted
+logger.info('API request', {
+  url: '/api/sheets',
+  apiKey: '***REDACTED***',
+});
+
+// ❌ BAD - Logging secrets
+logger.info('API request', {
+  apiKey: process.env.GOOGLE_API_KEY,  // NEVER!
+});
+```
+
+#### 5. **Log request/response for APIs**
+```javascript
+// Middleware for request logging
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info('http_request', {
+      method: req.method,
+      url: req.url,
+      status: res.statusCode,
+      duration,
+      userAgent: req.get('user-agent'),
+      ip: req.ip,
+    });
+  });
+
+  next();
+});
+```
+
+### Log file structure:
+```
+logs/
+  ├── combined.log      # All logs
+  ├── error.log         # Errors only
+  └── access.log        # HTTP access logs (optional)
+```
+
+### Environment configuration (.env):
+```bash
+# Logging
+LOG_LEVEL=info          # debug, info, warn, error, critical
+LOG_FORMAT=json         # json or console
+LOG_MAX_SIZE=10485760   # 10MB
+LOG_MAX_FILES=5         # Keep 5 rotated files
+```
+
+### .gitignore must include:
+```
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+```
+
+### Monitoring integration (Production):
+
+For GCP Cloud Run, logs automatically go to Cloud Logging:
+
+```javascript
+// Production logging goes to stdout/stderr
+// Cloud Run automatically captures and sends to Cloud Logging
+// No file transports needed in production
+
+if (process.env.NODE_ENV === 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.json(),  // Structured JSON for Cloud Logging
+  }));
+}
+```
+
+### Required dependencies:
+
+**Node.js:**
+```bash
+npm install winston winston-daily-rotate-file
+```
+
+**Python:**
+```bash
+pip install structlog python-json-logger
+```
+
+---
+
 **These standards are mandatory for all code in this project.**
 

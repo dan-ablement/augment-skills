@@ -36,6 +36,7 @@ The MVP focuses on proving the core value proposition with minimal complexity:
 - **[LOCAL_TO_GCP_QUICKSTART.md](./LOCAL_TO_GCP_QUICKSTART.md)** - Quick reference for developers
 - **[PRODUCT_REQUIREMENTS.md](./PRODUCT_REQUIREMENTS.md)** - Full product vision and roadmap
 - **[INTEGRATION_MODULES_SUMMARY.md](./INTEGRATION_MODULES_SUMMARY.md)** - Google Classroom and Slack integration specs
+- **[DEVELOPMENT_STANDARDS.md](./DEVELOPMENT_STANDARDS.md)** - ⭐ **Mandatory development standards** (secrets, config, testing, logging)
 
 ## 🚀 Quick Start
 
@@ -45,8 +46,20 @@ The MVP focuses on proving the core value proposition with minimal complexity:
 - Google Cloud SDK
 - GCP account (free tier)
 
+### ⚠️ Before You Start - Read Development Standards
+**All developers must read [DEVELOPMENT_STANDARDS.md](./DEVELOPMENT_STANDARDS.md) before contributing.**
+
+Key requirements:
+- 🔐 All secrets in `.env` files (never in code)
+- ⚙️ All config in config files (no magic numbers)
+- 📚 Document all features and code
+- 🧪 Write unit tests and test before committing
+- 🐍 Python virtual environments outside repo (`~/.virtualenvs/`)
+- 📊 Use structured logging for all operations
+
 ### Local Development
 
+#### Node.js Setup
 ```bash
 # 1. Clone repository
 git clone https://github.com/dan-ablement/augment-skills.git
@@ -60,15 +73,45 @@ cp .env.example .env
 docker-compose up -d
 
 # 4. Install dependencies
-npm install  # or pip install -r requirements.txt
+npm install
 
 # 5. Run migrations
-npm run migrate  # or python manage.py migrate
+npm run migrate
 
 # 6. Start development server
-npm run dev  # or python app.py
+npm run dev
 
 # 7. Access application
+open http://localhost:3000
+```
+
+#### Python Setup
+```bash
+# 1. Clone repository
+git clone https://github.com/dan-ablement/augment-skills.git
+cd augment-skills
+
+# 2. Create virtual environment (OUTSIDE repo)
+python -m venv ~/.virtualenvs/augment-skills
+source ~/.virtualenvs/augment-skills/bin/activate
+
+# 3. Set up environment
+cp .env.example .env
+# Edit .env with your values
+
+# 4. Start PostgreSQL
+docker-compose up -d
+
+# 5. Install dependencies
+pip install -r requirements.txt
+
+# 6. Run migrations
+python manage.py migrate
+
+# 7. Start development server
+python app.py
+
+# 8. Access application
 open http://localhost:3000
 ```
 
