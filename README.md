@@ -30,13 +30,26 @@ The MVP focuses on proving the core value proposition with minimal complexity:
 - **Frontend**: React or simple HTML templates
 - **Database**: PostgreSQL 14+
 
+## 🚀 Getting Started
+
+**New to this project? Start here:**
+
+1. 📖 **[PROJECT_PHASES.md](./PROJECT_PHASES.md)** - Overview of all 4 weeks
+2. 🎯 **[WEEK_1_GETTING_STARTED.md](./WEEK_1_GETTING_STARTED.md)** - ⭐ **Start here!** Detailed Week 1 guide
+3. ⚠️ **[DEVELOPMENT_STANDARDS.md](./DEVELOPMENT_STANDARDS.md)** - **MUST READ** before coding
+
 ## 📚 Documentation
 
+### Getting Started Guides
+- **[PROJECT_PHASES.md](./PROJECT_PHASES.md)** - 4-week project timeline and phases
+- **[WEEK_1_GETTING_STARTED.md](./WEEK_1_GETTING_STARTED.md)** - Detailed Week 1 setup guide
+- **[DEVELOPMENT_STANDARDS.md](./DEVELOPMENT_STANDARDS.md)** - ⭐ **Mandatory standards** (secrets, config, testing, logging)
+
+### Technical Documentation
 - **[MVP_DEFINITION.md](./MVP_DEFINITION.md)** - Complete MVP specification with local development and GCP deployment guide
 - **[LOCAL_TO_GCP_QUICKSTART.md](./LOCAL_TO_GCP_QUICKSTART.md)** - Quick reference for developers
 - **[PRODUCT_REQUIREMENTS.md](./PRODUCT_REQUIREMENTS.md)** - Full product vision and roadmap
 - **[INTEGRATION_MODULES_SUMMARY.md](./INTEGRATION_MODULES_SUMMARY.md)** - Google Classroom and Slack integration specs
-- **[DEVELOPMENT_STANDARDS.md](./DEVELOPMENT_STANDARDS.md)** - ⭐ **Mandatory development standards** (secrets, config, testing, logging)
 
 ## 🚀 Quick Start
 
