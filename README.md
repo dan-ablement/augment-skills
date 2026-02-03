@@ -2,6 +2,13 @@
 
 A Learning Management System (LMS) focused on tracking go-to-market (GTM) readiness for sales teams and solution architects.
 
+## 🌐 Deployed Application
+
+The application is live on Google Cloud Platform:
+
+- **Frontend**: https://augment-skills-frontend-656706478564.us-central1.run.app
+- **Backend API**: https://augment-skills-backend-656706478564.us-central1.run.app
+
 ## 🎯 Overview
 
 Augment Skills provides a visual heatmap dashboard that shows employee skill proficiency at a glance. Skills are listed on the left, employees across the top, with color-coded cells indicating proficiency levels.
@@ -12,11 +19,21 @@ Augment Skills provides a visual heatmap dashboard that shows employee skill pro
 - 🔴 Red: 0-74% (Not Proficient)
 - ⚪ Gray: No data / Not assessed
 
+## 🔐 Authentication
+
+The application supports two authentication methods:
+
+- **Google OAuth Login**: Available for authorized users:
+  - mollie@augmentcode.com
+  - diacono@augmentcode.com
+  - mattarnold@augmentcode.com
+- **Admin Login**: Password-based admin access for application management
+
 ## 📋 MVP Features
 
 The MVP focuses on proving the core value proposition with minimal complexity:
 
-- **Admin-Only Access**: Simple password-based login (no SSO)
+- **Google OAuth + Admin Access**: Secure login for authorized team members
 - **Data Import**: CSV upload, Google Sheets, and Google Forms integration
 - **Heatmap Dashboard**: Visual representation of team skill readiness
 - **CSV Export**: Download current skill data
@@ -24,11 +41,35 @@ The MVP focuses on proving the core value proposition with minimal complexity:
 
 ## 🏗️ Architecture
 
-- **Local Development**: PostgreSQL via Docker
-- **Production**: GCP Cloud Run + Cloud SQL
-- **Backend**: Node.js + Express (or Python + Flask)
-- **Frontend**: React or simple HTML templates
-- **Database**: PostgreSQL 14+
+### Tech Stack (Updated: February 2026)
+
+**Backend**:
+- **Framework**: Node.js + Express + TypeScript
+- **Job Queue**: Bull + Redis
+- **Authentication**: Google OAuth 2.0 + Session-based admin auth
+
+**Frontend**:
+- **Framework**: Next.js 14+ with TypeScript
+- **UI Library**: Tailwind CSS
+- **Data Visualization**: Recharts (heatmap and charts)
+- **State Management**: React Context API
+
+**Database & Cache**:
+- **Primary Database**: PostgreSQL 14+
+- **Cache/Sessions**: Redis 7+
+- **Local Development**: Docker Compose
+
+**GCP Production Deployment**:
+- **Compute**: Cloud Run (frontend and backend services)
+- **Database**: Cloud SQL (PostgreSQL) with private IP
+- **Cache/Sessions**: Memorystore (Redis) for session management
+- **Networking**: VPC Connector for private networking between services
+
+**Why This Stack?**
+- ✅ **Modular**: Easy to add new data source integrations
+- ✅ **Scalable**: Cloud Run auto-scaling + Redis caching for fast dashboards
+- ✅ **Type-Safe**: TypeScript across frontend and backend
+- ✅ **Secure**: Private networking, managed SSL, OAuth authentication
 
 ## 🚀 Getting Started
 
@@ -137,9 +178,11 @@ open http://localhost:3000
 
 ## 💰 Cost Estimate
 
-- **Cloud Run**: Free tier (2M requests/month)
-- **Cloud SQL**: ~$10-15/month (db-f1-micro)
-- **Total**: ~$10-20/month for MVP
+- **Cloud Run**: Free tier (2M requests/month) - Frontend & Backend
+- **Cloud SQL**: ~$10-15/month (db-f1-micro PostgreSQL)
+- **Memorystore (Redis)**: ~$15-25/month (Basic tier, 1GB)
+- **VPC Connector**: ~$7/month (f1-micro instances)
+- **Total**: ~$35-50/month for production deployment
 
 ## 📖 License
 

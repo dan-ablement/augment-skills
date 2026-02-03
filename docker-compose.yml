@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:14-alpine
+    container_name: augment-skills-db
+    environment:
+      POSTGRES_DB: augment_skills
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: localdev123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - augment-network
+
+  # Redis Cache & Job Queue
+  redis:
+    image: redis:7-alpine
+    container_name: augment-skills-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - augment-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  augment-network:
+    driver: bridge
+
