@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:14-alpine
+    container_name: augment-skills-test-db
+    environment:
+      POSTGRES_DB: augment_skills
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: testpassword
+    ports:
+      - "5433:5432"  # Different port to avoid conflict with dev
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: augment-skills-test-redis
+    ports:
+      - "6380:6379"  # Different port to avoid conflict with dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: augment-skills-test-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: augment_skills
+      DB_USER: postgres
+      DB_PASSWORD: testpassword
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SESSION_SECRET: test-session-secret-at-least-32-characters-long
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: testadmin123
+      # OAuth not configured for local testing
+      # GOOGLE_CLIENT_ID: 
+      # GOOGLE_CLIENT_SECRET:
+    ports:
+      - "3002:3001"  # Different port to avoid conflict with dev
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - test-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        BACKEND_INTERNAL_URL: http://backend:3001
+    container_name: augment-skills-test-frontend
+    environment:
+      NODE_ENV: production
+      BACKEND_INTERNAL_URL: http://backend:3001
+    ports:
+      - "3003:3000"  # Different port to avoid conflict with dev
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
+

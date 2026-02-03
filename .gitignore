@@ -57,6 +57,7 @@ access.log
 *.sqlite3
 *.db
 postgres_data/
+redis_data/
 
 # Uploads
 uploads/

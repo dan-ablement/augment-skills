@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 249, 250, 251;
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+/* Heatmap cell styles */
+.heatmap-cell {
+  @apply w-12 h-12 rounded flex items-center justify-center text-xs font-medium transition-all duration-200;
+}
+
+.heatmap-cell:hover {
+  @apply ring-2 ring-blue-500 ring-offset-1 cursor-pointer;
+}
+
+/* Score color classes */
+.score-expert {
+  @apply bg-green-500 text-white;
+}
+
+.score-proficient {
+  @apply bg-lime-500 text-white;
+}
+
+.score-developing {
+  @apply bg-yellow-500 text-gray-900;
+}
+
+.score-beginner {
+  @apply bg-orange-500 text-white;
+}
+
+.score-none {
+  @apply bg-red-500 text-white;
+}
+
+.score-empty {
+  @apply bg-gray-200 text-gray-500;
+}
+
