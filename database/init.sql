@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
   name VARCHAR(255) NOT NULL,
   scopes TEXT[] DEFAULT '{}',
   is_active BOOLEAN NOT NULL DEFAULT true,
+  expires_at TIMESTAMPTZ DEFAULT NULL,
   last_used_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -208,12 +209,13 @@ FROM employees e WHERE e.email = 'bob@augmentcode.com'
 ON CONFLICT (employee_id, skill_id) DO NOTHING;
 
 -- Insert dev API key (bcrypt hash of "dev-test-api-key-12345")
-INSERT INTO api_keys (key_hash, name, scopes, is_active)
+INSERT INTO api_keys (key_hash, name, scopes, is_active, expires_at)
 VALUES (
   '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcg7b3XeKeUxWdeS86E36P4/KFm',
   'dev-test-key',
   ARRAY['validation:write', 'skills:read'],
-  true
+  true,
+  NULL
 )
 ON CONFLICT (key_hash) DO NOTHING;
 
