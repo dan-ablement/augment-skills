@@ -94,7 +94,7 @@ CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE ON api_keys
 -- Using a realistic bcrypt hash format
 INSERT INTO api_keys (key_hash, name, scopes, is_active, expires_at)
 VALUES (
-  '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcg7b3XeKeUxWdeS86E36P4/KFm',
+  '$2b$10$VYNtEqe0i8F3Dv1rSpAM6.XFeVeIgmyfMYbIX2ATksoRqFrUuDGxK',
   'dev-test-key',
   ARRAY['validation:write', 'skills:read'],
   true,
