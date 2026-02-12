@@ -43,7 +43,7 @@ export const requireApiKey = async (
 
     // Query the api_keys table to find matching key
     const result = await query(
-      `SELECT id, name, scopes, is_active, expires_at, last_used_at
+      `SELECT id, key_hash, name, scopes, is_active, expires_at, last_used_at
        FROM api_keys
        WHERE is_active = true
        ORDER BY created_at DESC`,
