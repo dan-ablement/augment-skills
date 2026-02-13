@@ -9,6 +9,7 @@ import { Header } from '@/components/Header';
 import { FilterPanel } from '@/components/FilterPanel';
 import { FilterSummaryBar } from '@/components/FilterSummaryBar';
 import { useFilterState } from '@/hooks/useFilterState';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import type { HierarchyNode, SummaryData } from '@/types/hierarchy';
 import type { ViewState } from '@/components/SavedViewsDropdown';
 
@@ -50,6 +51,8 @@ function DashboardContent() {
   const [skillNames, setSkillNames] = useState<{ id: number; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isAdmin, setIsAdmin] = useState(true);
+  const [showUpdatedToast, setShowUpdatedToast] = useState(false);
 
   // Track previous filter values to detect changes
   const prevFiltersRef = useRef<string>('');
@@ -62,6 +65,10 @@ function DashboardContent() {
         router.push('/login');
         return;
       }
+
+      // Extract user role info
+      const userRole = authResponse.data.user?.role;
+      setIsAdmin(userRole === 'admin');
 
       const qs = buildApiParams({
         scoringMode: filters.scoringMode,
@@ -92,6 +99,17 @@ function DashboardContent() {
       setIsLoading(false);
     }
   }, [router, filters.scoringMode, filters.skills, filters.roles, filters.managerId, filters.notAssessed]);
+
+  // Auto-refresh with idle detection
+  const { hasNewData, dismissBanner, manualRefresh } = useAutoRefresh({
+    refresh: async () => {
+      await fetchData();
+      setShowUpdatedToast(true);
+      setTimeout(() => setShowUpdatedToast(false), 3000);
+    },
+    intervalMs: 60000,
+    idleThresholdMs: 180000,
+  });
 
   // Fetch on mount and when filters change
   useEffect(() => {
@@ -151,6 +169,11 @@ function DashboardContent() {
     notAssessed: filters.notAssessed,
   };
 
+  const handleManualRefresh = useCallback(() => {
+    dismissBanner();
+    manualRefresh();
+  }, [dismissBanner, manualRefresh]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
@@ -170,9 +193,24 @@ function DashboardContent() {
         }}
         currentViewState={currentViewState}
         onLoadView={handleLoadView}
+        onManualRefresh={handleManualRefresh}
+        isAdmin={isAdmin}
       />
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {/* New data available banner */}
+        {hasNewData && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
+            <span className="text-sm text-blue-800">New data available — click to refresh</span>
+            <button
+              onClick={handleManualRefresh}
+              className="ml-4 px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+        )}
+
         {/* Filter Summary Bar */}
         <div className="mb-4">
           <FilterSummaryBar
@@ -224,7 +262,15 @@ function DashboardContent() {
         onSetManagerId={filters.setManagerId}
         onSetNotAssessed={filters.setNotAssessed}
         onClearAll={filters.clearAllFilters}
+        isAdmin={isAdmin}
       />
+
+      {/* Auto-refresh toast */}
+      {showUpdatedToast && (
+        <div className="fixed bottom-6 right-6 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm z-50 animate-fade-in">
+          Dashboard updated
+        </div>
+      )}
     </div>
   );
 }

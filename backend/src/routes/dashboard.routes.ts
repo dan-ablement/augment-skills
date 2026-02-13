@@ -126,7 +126,16 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
 
     const skillIds = skillsParam ? skillsParam.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n)) : [];
     const roles = rolesParam ? rolesParam.split(',').map((r) => r.trim()).filter(Boolean) : [];
-    const managerId = managerIdParam ? parseInt(managerIdParam, 10) : null;
+    let managerId = managerIdParam ? parseInt(managerIdParam, 10) : null;
+
+    // Permission-based filtering: non-admin users see only their subtree
+    const isAdmin = req.session.user?.role === 'admin';
+    if (!isAdmin) {
+      const userEmployeeId = await getEmployeeIdForUser(req.session.user?.email);
+      if (userEmployeeId !== null) {
+        managerId = userEmployeeId;
+      }
+    }
 
     const hasFilters = skillIds.length > 0 || roles.length > 0 || managerId !== null;
 
@@ -292,9 +301,23 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
 });
 
 /**
+ * Look up the employee record for a non-admin user by email.
+ * Returns the employee ID (to scope to their subtree) or null if not found.
+ */
+async function getEmployeeIdForUser(email: string | undefined): Promise<number | null> {
+  if (!email) return null;
+  const result = await query(
+    'SELECT id FROM employees WHERE email = $1 AND is_active = TRUE LIMIT 1',
+    [email],
+  );
+  return result.rows.length > 0 ? result.rows[0].id : null;
+}
+
+/**
  * GET /api/v1/dashboard/hierarchy
  * Get org tree with aggregated skill scores per manager node.
  * Supports scoring modes, skill/role filtering, subtree selection.
+ * Non-admin users are scoped to their own subtree.
  */
 router.get('/hierarchy', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -332,10 +355,20 @@ router.get('/hierarchy', async (req: Request, res: Response, next: NextFunction)
 
     // Parse optional manager_id
     const managerIdParam = req.query.manager_id as string | undefined;
-    const managerId = managerIdParam ? parseInt(managerIdParam, 10) : undefined;
+    let managerId = managerIdParam ? parseInt(managerIdParam, 10) : undefined;
     if (managerIdParam && (isNaN(managerId!) || managerId! <= 0)) {
       res.status(400).json({ error: 'Invalid manager_id. Must be a positive integer.' });
       return;
+    }
+
+    // Permission-based filtering: non-admin users see only their subtree
+    const isAdmin = req.session.user?.role === 'admin';
+    if (!isAdmin) {
+      const userEmployeeId = await getEmployeeIdForUser(req.session.user?.email);
+      if (userEmployeeId !== null) {
+        // Scope to user's subtree (override any requested manager_id)
+        managerId = userEmployeeId;
+      }
     }
 
     const tree = await hierarchyService.getHierarchy({

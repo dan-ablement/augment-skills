@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import type { ScoringMode, NotAssessedHandling } from '@/hooks/useFilterState';
 
@@ -9,6 +9,20 @@ interface Skill {
   name: string;
   category: string;
 }
+
+interface ColorThresholds {
+  expert: number;
+  proficient: number;
+  developing: number;
+  novice: number;
+}
+
+const DEFAULT_THRESHOLDS: ColorThresholds = {
+  expert: 90,
+  proficient: 70,
+  developing: 50,
+  novice: 25,
+};
 
 interface FilterPanelProps {
   isOpen: boolean;
@@ -26,6 +40,7 @@ interface FilterPanelProps {
   onSetManagerId: (id: number | null) => void;
   onSetNotAssessed: (handling: NotAssessedHandling) => void;
   onClearAll: () => void;
+  isAdmin?: boolean;
 }
 
 export function FilterPanel({
@@ -42,20 +57,25 @@ export function FilterPanel({
   onSetManagerId,
   onSetNotAssessed,
   onClearAll,
+  isAdmin = true,
 }: FilterPanelProps) {
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [skillSearch, setSkillSearch] = useState('');
   const [roleSearch, setRoleSearch] = useState('');
+  const [thresholds, setThresholds] = useState<ColorThresholds>(DEFAULT_THRESHOLDS);
+  const [thresholdSaved, setThresholdSaved] = useState(false);
+  const [notAssessedSaved, setNotAssessedSaved] = useState(false);
 
-  // Fetch available skills and roles
+  // Fetch available skills, roles, and settings
   useEffect(() => {
     if (!isOpen) return;
     const fetchOptions = async () => {
       try {
-        const [skillsRes, employeesRes] = await Promise.all([
+        const [skillsRes, employeesRes, settingsRes] = await Promise.all([
           api.get('/skills', { params: { limit: 200 } }),
           api.get('/dashboard/heatmap'),
+          api.get('/settings'),
         ]);
         setAvailableSkills(skillsRes.data.data?.skills || skillsRes.data.skills || []);
         // Extract unique departments from employees
@@ -63,12 +83,55 @@ export function FilterPanel({
         const deptSet = new Set<string>(employees.map((e: any) => e.department).filter(Boolean));
         const depts = Array.from(deptSet);
         setAvailableRoles(depts.sort());
+
+        // Load settings
+        const settings = settingsRes.data.settings || {};
+        if (settings.color_thresholds?.value) {
+          setThresholds(settings.color_thresholds.value as ColorThresholds);
+        }
       } catch (err) {
         console.error('Failed to fetch filter options:', err);
       }
     };
     fetchOptions();
   }, [isOpen]);
+
+  // Save color thresholds to backend (admin only)
+  const saveThresholds = useCallback(async (newThresholds: ColorThresholds) => {
+    try {
+      await api.put('/settings/color_thresholds', { value: newThresholds });
+      setThresholdSaved(true);
+      setTimeout(() => setThresholdSaved(false), 2000);
+    } catch (err) {
+      console.error('Failed to save thresholds:', err);
+    }
+  }, []);
+
+  // Save not_assessed setting to backend (admin only)
+  const saveNotAssessed = useCallback(async (value: NotAssessedHandling) => {
+    try {
+      await api.put('/settings/not_assessed_default', { value });
+      setNotAssessedSaved(true);
+      setTimeout(() => setNotAssessedSaved(false), 2000);
+    } catch (err) {
+      console.error('Failed to save not assessed setting:', err);
+    }
+  }, []);
+
+  const handleThresholdChange = useCallback((key: keyof ColorThresholds, val: string) => {
+    const num = parseInt(val, 10);
+    if (isNaN(num) || num < 0 || num > 100) return;
+    const updated = { ...thresholds, [key]: num };
+    setThresholds(updated);
+    saveThresholds(updated);
+  }, [thresholds, saveThresholds]);
+
+  const handleNotAssessedChange = useCallback((value: NotAssessedHandling) => {
+    onSetNotAssessed(value);
+    if (isAdmin) {
+      saveNotAssessed(value);
+    }
+  }, [onSetNotAssessed, isAdmin, saveNotAssessed]);
 
   const filteredSkills = availableSkills.filter(
     (s) => s.name.toLowerCase().includes(skillSearch.toLowerCase()) && !selectedSkills.includes(s.id)
@@ -222,36 +285,101 @@ export function FilterPanel({
               <p className="mt-1 text-xs text-gray-400">Enter a manager ID to filter to their team</p>
             </div>
 
-            {/* Not Assessed Handling (admin section) */}
+            {/* Not Assessed Handling */}
             <div className="border-t border-gray-200 pt-4">
               <label className="block text-xs font-medium text-gray-700 mb-2">
                 &quot;Not Assessed&quot; Handling
+                {notAssessedSaved && (
+                  <span className="ml-2 text-green-600 text-xs">Saved ✓</span>
+                )}
               </label>
-              <div className="space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="notAssessed"
-                    value="exclude"
-                    checked={notAssessed === 'exclude'}
-                    onChange={() => onSetNotAssessed('exclude')}
-                    className="h-3.5 w-3.5 text-blue-600 border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Exclude from calculations</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="notAssessed"
-                    value="count_as_zero"
-                    checked={notAssessed === 'count_as_zero'}
-                    onChange={() => onSetNotAssessed('count_as_zero')}
-                    className="h-3.5 w-3.5 text-blue-600 border-gray-300"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Count as zero</span>
-                </label>
-              </div>
+              {isAdmin ? (
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="notAssessed"
+                      value="exclude"
+                      checked={notAssessed === 'exclude'}
+                      onChange={() => handleNotAssessedChange('exclude')}
+                      className="h-3.5 w-3.5 text-blue-600 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Exclude from calculations</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="notAssessed"
+                      value="count_as_zero"
+                      checked={notAssessed === 'count_as_zero'}
+                      onChange={() => handleNotAssessedChange('count_as_zero')}
+                      className="h-3.5 w-3.5 text-blue-600 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Count as zero</span>
+                  </label>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  {notAssessed === 'exclude' ? 'Excluded from calculations' : 'Counted as zero'}
+                </p>
+              )}
             </div>
+
+            {/* Color Threshold Editor */}
+            <div className="border-t border-gray-200 pt-4">
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Color Thresholds
+                {thresholdSaved && (
+                  <span className="ml-2 text-green-600 text-xs">Saved ✓</span>
+                )}
+              </label>
+              {isAdmin ? (
+                <div className="space-y-2">
+                  {([
+                    { key: 'expert' as const, label: 'Expert', color: 'bg-green-100 text-green-800' },
+                    { key: 'proficient' as const, label: 'Proficient', color: 'bg-blue-100 text-blue-800' },
+                    { key: 'developing' as const, label: 'Developing', color: 'bg-yellow-100 text-yellow-800' },
+                    { key: 'novice' as const, label: 'Novice', color: 'bg-red-100 text-red-800' },
+                  ]).map(({ key, label, color }) => (
+                    <div key={key} className="flex items-center justify-between">
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${color}`}>{label}</span>
+                      <div className="flex items-center">
+                        <span className="text-xs text-gray-500 mr-1">≥</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={thresholds[key]}
+                          onChange={(e) => handleThresholdChange(key, e.target.value)}
+                          className="w-14 px-2 py-1 text-xs border border-gray-300 rounded-md text-center focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {([
+                    { label: 'Expert', value: thresholds.expert, color: 'bg-green-100 text-green-800' },
+                    { label: 'Proficient', value: thresholds.proficient, color: 'bg-blue-100 text-blue-800' },
+                    { label: 'Developing', value: thresholds.developing, color: 'bg-yellow-100 text-yellow-800' },
+                    { label: 'Novice', value: thresholds.novice, color: 'bg-red-100 text-red-800' },
+                  ]).map(({ label, value, color }) => (
+                    <div key={label} className="flex items-center justify-between">
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${color}`}>{label}</span>
+                      <span className="text-xs text-gray-500">≥ {value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Non-admin team limitation notice */}
+            {!isAdmin && (
+              <div className="border-t border-gray-200 pt-4">
+                <p className="text-xs text-gray-400 italic">View limited to your team</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
