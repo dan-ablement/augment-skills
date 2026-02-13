@@ -21,6 +21,8 @@ import skillRoutes from './routes/skill.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import importRoutes from './routes/import.routes';
 import validationEventsRoutes from './routes/validation-events.routes';
+import viewsRoutes from './routes/views.routes';
+import settingsRoutes from './routes/settings.routes';
 
 // Load environment variables
 dotenv.config();
@@ -104,6 +106,8 @@ app.use(`${API_PREFIX}/skills`, skillRoutes);
 app.use(`${API_PREFIX}/dashboard`, dashboardRoutes);
 app.use(`${API_PREFIX}/import`, importRoutes);
 app.use(`${API_PREFIX}/validation-events`, validationEventsRoutes);
+app.use(`${API_PREFIX}/views`, viewsRoutes);
+app.use(`${API_PREFIX}/settings`, settingsRoutes);
 
 // 404 handler
 app.use((_req, res) => {
