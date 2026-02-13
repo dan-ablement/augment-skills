@@ -23,6 +23,7 @@ import importRoutes from './routes/import.routes';
 import validationEventsRoutes from './routes/validation-events.routes';
 import viewsRoutes from './routes/views.routes';
 import settingsRoutes from './routes/settings.routes';
+import exportRoutes from './routes/export.routes';
 
 // Load environment variables
 dotenv.config();
@@ -108,6 +109,7 @@ app.use(`${API_PREFIX}/import`, importRoutes);
 app.use(`${API_PREFIX}/validation-events`, validationEventsRoutes);
 app.use(`${API_PREFIX}/views`, viewsRoutes);
 app.use(`${API_PREFIX}/settings`, settingsRoutes);
+app.use(`${API_PREFIX}/export`, exportRoutes);
 
 // 404 handler
 app.use((_req, res) => {

@@ -10,6 +10,7 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { FilterSummaryBar } from '@/components/FilterSummaryBar';
 import { useFilterState } from '@/hooks/useFilterState';
 import type { HierarchyNode, SummaryData } from '@/types/hierarchy';
+import type { ViewState } from '@/components/SavedViewsDropdown';
 
 /**
  * Build query string from filter state for the hierarchy & summary APIs.
@@ -109,6 +110,20 @@ function DashboardContent() {
     }
   }, [fetchData, filters.scoringMode, filters.skills, filters.roles, filters.managerId, filters.notAssessed]);
 
+  // Load a saved view by restoring all filter state
+  const handleLoadView = useCallback((state: ViewState) => {
+    filters.setScoringMode(state.scoringMode);
+    filters.setSkills(state.skills);
+    filters.setRoles(state.roles);
+    filters.setManagerId(state.managerId);
+    filters.setNotAssessed(state.notAssessed);
+  }, [filters]);
+
+  // Team isolation: set managerId in filter state
+  const handleIsolateManager = useCallback((managerId: number | null) => {
+    filters.setManagerId(managerId);
+  }, [filters]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -127,15 +142,14 @@ function DashboardContent() {
     );
   }
 
-  // Map summary data to the shape SummaryCards expects
-  const summaryForCards = summary
-    ? {
-        totalEmployees: summary.filtered.totalEmployees,
-        totalSkills: summary.filtered.totalSkills,
-        totalAssessments: summary.filtered.totalAssessments,
-        averageScore: summary.filtered.score ?? 0,
-      }
-    : null;
+  // Build current view state for saved views
+  const currentViewState: ViewState = {
+    scoringMode: filters.scoringMode,
+    skills: filters.skills,
+    roles: filters.roles,
+    managerId: filters.managerId,
+    notAssessed: filters.notAssessed,
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -146,6 +160,16 @@ function DashboardContent() {
         filterPanelOpen={filters.filterPanelOpen}
         onToggleFilterPanel={filters.toggleFilterPanel}
         hasActiveFilters={filters.hasActiveFilters}
+        onExportCsv={() => {
+          const qs = buildApiParams({ scoringMode: filters.scoringMode, skills: filters.skills, roles: filters.roles, managerId: filters.managerId, notAssessed: filters.notAssessed });
+          window.open(`/api/v1/export/csv${qs}`, '_blank');
+        }}
+        onExportPdf={() => {
+          const qs = buildApiParams({ scoringMode: filters.scoringMode, skills: filters.skills, roles: filters.roles, managerId: filters.managerId, notAssessed: filters.notAssessed });
+          window.open(`/api/v1/export/pdf${qs}`, '_blank');
+        }}
+        currentViewState={currentViewState}
+        onLoadView={handleLoadView}
       />
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
@@ -167,14 +191,21 @@ function DashboardContent() {
         </div>
 
         {/* Summary Cards */}
-        {summaryForCards && <SummaryCards summary={summaryForCards} />}
+        {summary && <SummaryCards summary={summary} scoringMode={filters.scoringMode} />}
 
         {/* Heatmap */}
         <div className="mt-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Skills Heatmap
           </h2>
-          {hierarchyData && <Heatmap data={hierarchyData} collapseAll={filters.collapseAll} />}
+          {hierarchyData && (
+            <Heatmap
+              data={hierarchyData}
+              collapseAll={filters.collapseAll}
+              isolatedManagerId={filters.managerId}
+              onIsolateManager={handleIsolateManager}
+            />
+          )}
         </div>
       </main>
 

@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import type { ScoringMode } from '@/hooks/useFilterState';
+import { SavedViewsDropdown } from '@/components/SavedViewsDropdown';
+import type { ViewState } from '@/components/SavedViewsDropdown';
 
 interface HeaderProps {
   scoringMode?: ScoringMode;
@@ -12,6 +14,10 @@ interface HeaderProps {
   filterPanelOpen?: boolean;
   onToggleFilterPanel?: () => void;
   hasActiveFilters?: boolean;
+  onExportCsv?: () => void;
+  onExportPdf?: () => void;
+  currentViewState?: ViewState;
+  onLoadView?: (state: ViewState) => void;
 }
 
 const SCORING_MODES: { value: ScoringMode; label: string }[] = [
@@ -27,23 +33,22 @@ export function Header({
   filterPanelOpen = false,
   onToggleFilterPanel,
   hasActiveFilters = false,
+  onExportCsv,
+  onExportPdf,
+  currentViewState,
+  onLoadView,
 }: HeaderProps) {
   const router = useRouter();
   const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
-  const [savedViewsDropdownOpen, setSavedViewsDropdownOpen] = useState(false);
   const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
-  const savedViewsRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
         setExportDropdownOpen(false);
-      }
-      if (savedViewsRef.current && !savedViewsRef.current.contains(e.target as Node)) {
-        setSavedViewsDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -164,43 +169,23 @@ export function Header({
               </button>
               {exportDropdownOpen && (
                 <div className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setExportDropdownOpen(false)}>
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => { setExportDropdownOpen(false); onExportCsv?.(); }}>
                     Export CSV
                   </button>
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setExportDropdownOpen(false)}>
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => { setExportDropdownOpen(false); onExportPdf?.(); }}>
                     Export PDF
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Saved Views Dropdown (placeholder) */}
-            <div className="relative" ref={savedViewsRef}>
-              <button
-                onClick={() => setSavedViewsDropdownOpen(!savedViewsDropdownOpen)}
-                className="flex items-center px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                </svg>
-                Views
-                <svg className={`w-3 h-3 ml-1 transition-transform ${savedViewsDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {savedViewsDropdownOpen && (
-                <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
-                  <div className="px-4 py-3 text-xs text-gray-500 text-center">
-                    No saved views yet
-                  </div>
-                  <div className="border-t border-gray-100">
-                    <button className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50" onClick={() => setSavedViewsDropdownOpen(false)}>
-                      + Save Current View
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Saved Views Dropdown */}
+            {currentViewState && onLoadView && (
+              <SavedViewsDropdown
+                currentViewState={currentViewState}
+                onLoadView={onLoadView}
+              />
+            )}
 
             <div className="w-px h-6 bg-gray-300 mx-1" />
 
