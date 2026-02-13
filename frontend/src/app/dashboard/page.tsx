@@ -53,6 +53,7 @@ function DashboardContent() {
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(true);
   const [showUpdatedToast, setShowUpdatedToast] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Track previous filter values to detect changes
   const prevFiltersRef = useRef<string>('');
@@ -62,6 +63,7 @@ function DashboardContent() {
       // Check auth first
       const authResponse = await api.get('/auth/me');
       if (!authResponse.data.isAuthenticated) {
+        setIsRedirecting(true);
         router.push('/login');
         return;
       }
@@ -91,10 +93,11 @@ function DashboardContent() {
       setSkillNames(skills.map((s: any) => ({ id: s.id, name: s.name })));
     } catch (err: any) {
       if (err.response?.status === 401) {
+        setIsRedirecting(true);
         router.push('/login');
-      } else {
-        setError('Failed to load dashboard data');
+        return;
       }
+      setError('Failed to load dashboard data');
     } finally {
       setIsLoading(false);
     }
@@ -156,7 +159,7 @@ function DashboardContent() {
     manualRefresh();
   }, [dismissBanner, manualRefresh]);
 
-  if (isLoading) {
+  if (isLoading || isRedirecting) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
