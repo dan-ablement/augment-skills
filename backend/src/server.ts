@@ -7,6 +7,7 @@ import RedisStore from 'connect-redis';
 import rateLimit from 'express-rate-limit';
 import passport from 'passport';
 import dotenv from 'dotenv';
+import next from 'next';
 
 import { appConfig } from './config/app.config';
 import { redisClient } from './config/redis.config';
@@ -30,17 +31,26 @@ dotenv.config();
 
 const app: Application = express();
 const PORT = appConfig.port;
+const dev = appConfig.nodeEnv !== 'production';
+
+// Next.js app instance
+const nextApp = next({ dev, dir: appConfig.nextDir });
+const nextHandler = nextApp.getRequestHandler();
 
 // ============================================
 // MIDDLEWARE
 // ============================================
 
-// Security
-app.use(helmet());
-app.use(cors({
-  origin: appConfig.corsOrigin,
-  credentials: appConfig.corsCredentials,
-}));
+// Security — disable CSP so Next.js inline scripts are not blocked
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// CORS — only needed in development when frontend/backend run on different ports
+if (dev) {
+  app.use(cors({
+    origin: appConfig.corsOrigin,
+    credentials: appConfig.corsCredentials,
+  }));
+}
 
 // Rate limiting
 const limiter = rateLimit({
@@ -72,7 +82,7 @@ app.use(
       secure: appConfig.nodeEnv === 'production',
       httpOnly: true,
       maxAge: appConfig.sessionMaxAge,
-      sameSite: appConfig.nodeEnv === 'production' ? 'none' : 'lax',
+      sameSite: 'lax',
     },
   })
 );
@@ -111,13 +121,13 @@ app.use(`${API_PREFIX}/views`, viewsRoutes);
 app.use(`${API_PREFIX}/settings`, settingsRoutes);
 app.use(`${API_PREFIX}/export`, exportRoutes);
 
-// 404 handler
-app.use((_req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
-
-// Error handler (must be last)
+// Error handler for API routes
 app.use(errorHandler);
+
+// Next.js catch-all handler — serves pages, static assets, _next/*
+app.all('*', (req, res) => {
+  return nextHandler(req, res);
+});
 
 // ============================================
 // START SERVER
@@ -129,11 +139,16 @@ const startServer = async () => {
     await redisClient.ping();
     logger.info('✅ Redis connected');
 
+    // Prepare Next.js
+    await nextApp.prepare();
+    logger.info('✅ Next.js ready');
+
     // Start server
     app.listen(PORT, () => {
       logger.info(`🚀 Server running on port ${PORT}`);
       logger.info(`📝 Environment: ${appConfig.nodeEnv}`);
       logger.info(`🔗 API: http://localhost:${PORT}${API_PREFIX}`);
+      logger.info(`🌐 Frontend: http://localhost:${PORT}`);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);

@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config();
 
@@ -7,6 +8,9 @@ export const appConfig = {
   port: parseInt(process.env.PORT || '3001', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   apiPrefix: process.env.API_PREFIX || '/api/v1',
+
+  // Next.js frontend directory
+  nextDir: process.env.NEXT_DIR || path.join(__dirname, '../../../frontend'),
 
   // Database
   database: {

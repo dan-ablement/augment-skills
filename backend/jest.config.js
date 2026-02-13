@@ -1,7 +1,14 @@
 /** @type {import('jest').Config} */
 module.exports = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
+      // Suppress TS2704 (delete on readonly property) caused by Next.js global
+      // type augmentations making process.env.NODE_ENV readonly.
+      // Type checking is handled by `npx tsc --noEmit` separately.
+      diagnostics: false,
+    }],
+  },
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
   collectCoverageFrom: [
