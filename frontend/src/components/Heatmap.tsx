@@ -12,6 +12,10 @@ export interface HierarchyHeatmapProps {
   collapseAll?: boolean;
   /** Callback when "Collapse All" is triggered externally */
   onCollapseAll?: () => void;
+  /** Currently isolated manager ID (null = no isolation) */
+  isolatedManagerId?: number | null;
+  /** Callback when isolation is toggled for a manager */
+  onIsolateManager?: (managerId: number | null) => void;
 }
 
 /** A flattened column representing one node in the visible heatmap */
@@ -87,7 +91,7 @@ function findAncestorChain(
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export function Heatmap({ data, collapseAll: collapseAllProp, onCollapseAll }: HierarchyHeatmapProps) {
+export function Heatmap({ data, collapseAll: collapseAllProp, onCollapseAll, isolatedManagerId = null, onIsolateManager }: HierarchyHeatmapProps) {
   // Expansion state: set of expanded node IDs
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
@@ -303,6 +307,23 @@ export function Heatmap({ data, collapseAll: collapseAllProp, onCollapseAll }: H
                         </span>
                       )}
                     </div>
+                    {/* Team isolation toggle for expanded managers */}
+                    {node.isManager && isExpanded && onIsolateManager && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onIsolateManager(isolatedManagerId === node.id ? null : node.id);
+                        }}
+                        className={`mt-1 px-1.5 py-0.5 text-[10px] rounded transition-colors ${
+                          isolatedManagerId === node.id
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 text-gray-600 hover:bg-blue-100 hover:text-blue-700'
+                        }`}
+                        title={isolatedManagerId === node.id ? 'Show all teams' : `Show only ${node.name}'s team`}
+                      >
+                        {isolatedManagerId === node.id ? '✕ Isolated' : `Isolate`}
+                      </button>
+                    )}
                   </th>
                 );
               })}

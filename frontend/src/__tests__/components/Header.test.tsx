@@ -61,7 +61,18 @@ describe('Header', () => {
     });
 
     it('should render the Views dropdown button', () => {
-      render(<Header />);
+      render(
+        <Header
+          currentViewState={{
+            scoringMode: 'average',
+            skills: [],
+            roles: [],
+            managerId: null,
+            notAssessed: 'exclude',
+          }}
+          onLoadView={() => {}}
+        />
+      );
       expect(screen.getByText('Views')).toBeInTheDocument();
     });
 
