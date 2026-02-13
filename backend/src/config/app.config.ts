@@ -38,6 +38,9 @@ export const appConfig = {
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   corsCredentials: process.env.CORS_CREDENTIALS === 'true',
 
+  // Frontend URL (for OAuth redirects)
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+
   // Google API
   googleCredentials: process.env.GOOGLE_APPLICATION_CREDENTIALS || './service-account-key.json',
   googleSheetsApiKey: process.env.GOOGLE_SHEETS_API_KEY || '',
