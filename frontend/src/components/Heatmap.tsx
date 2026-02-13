@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { HierarchyNode, SkillScore } from '@/types/hierarchy';
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -8,6 +8,8 @@ import type { HierarchyNode, SkillScore } from '@/types/hierarchy';
 export interface HierarchyHeatmapProps {
   /** Root nodes of the org hierarchy tree */
   data: HierarchyNode[];
+  /** When this transitions to true, collapse all expanded nodes */
+  collapseAll?: boolean;
   /** Callback when "Collapse All" is triggered externally */
   onCollapseAll?: () => void;
 }
@@ -85,9 +87,18 @@ function findAncestorChain(
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export function Heatmap({ data, onCollapseAll }: HierarchyHeatmapProps) {
+export function Heatmap({ data, collapseAll: collapseAllProp, onCollapseAll }: HierarchyHeatmapProps) {
   // Expansion state: set of expanded node IDs
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+
+  // Track previous collapseAll value to detect transitions to true
+  const prevCollapseAllRef = useRef(false);
+  useEffect(() => {
+    if (collapseAllProp && !prevCollapseAllRef.current) {
+      setExpandedIds(new Set());
+    }
+    prevCollapseAllRef.current = !!collapseAllProp;
+  }, [collapseAllProp]);
 
   const [hoveredCell, setHoveredCell] = useState<{
     name: string;

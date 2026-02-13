@@ -2,9 +2,9 @@
 
 import { useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import type { ScoringMode, NotAssessedHandling } from '@/types/hierarchy';
 
-export type ScoringMode = 'average' | 'team_readiness' | 'coverage';
-export type NotAssessedHandling = 'exclude' | 'count_as_zero';
+export type { ScoringMode, NotAssessedHandling };
 
 export interface FilterState {
   scoringMode: ScoringMode;

@@ -174,7 +174,7 @@ function DashboardContent() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Skills Heatmap
           </h2>
-          {hierarchyData && <Heatmap data={hierarchyData} />}
+          {hierarchyData && <Heatmap data={hierarchyData} collapseAll={filters.collapseAll} />}
         </div>
       </main>
 
