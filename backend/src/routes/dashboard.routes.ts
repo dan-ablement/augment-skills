@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { query } from '../config/database.config';
 import { requireAuth } from '../middleware/auth.middleware';
 import { hierarchyService, ScoringMode, NotAssessedHandling } from '../services/hierarchy.service';
+import { computeScore, getDefaultNotAssessed } from '../services/scoring.utils';
 
 const router = Router();
 
@@ -98,26 +99,7 @@ router.get('/heatmap', async (req: Request, res: Response, next: NextFunction) =
   }
 });
 
-/**
- * Compute a score from an array of numeric scores using the given scoring mode.
- */
-function computeScore(scores: number[], scoringMode: string): number {
-  if (scores.length === 0) return 0;
-  if (scoringMode === 'team_readiness') {
-    // 25th percentile
-    const sorted = [...scores].sort((a, b) => a - b);
-    const idx = Math.max(0, Math.ceil(sorted.length * 0.25) - 1);
-    return Math.round(sorted[idx] * 100) / 100;
-  }
-  if (scoringMode === 'coverage') {
-    // Percentage of scores >= 70
-    const covered = scores.filter((s) => s >= 70).length;
-    return Math.round((covered / scores.length) * 10000) / 100;
-  }
-  // Default: average
-  const sum = scores.reduce((a, b) => a + b, 0);
-  return Math.round((sum / scores.length) * 100) / 100;
-}
+// computeScore is now imported from scoring.utils
 
 /**
  * GET /api/v1/dashboard/summary
@@ -133,11 +115,14 @@ function computeScore(scores: number[], scoringMode: string): number {
 router.get('/summary', async (req: Request, res: Response, next: NextFunction) => {
   try {
     // --- Parse query params ---
-    const scoringMode = (req.query.scoring_mode as string) || 'average';
+    const scoringMode = ((req.query.scoring_mode as string) || 'average') as ScoringMode;
     const skillsParam = req.query.skills as string | undefined;
     const rolesParam = req.query.roles as string | undefined;
     const managerIdParam = req.query.manager_id as string | undefined;
-    const notAssessed = (req.query.not_assessed as string) || 'exclude';
+    const notAssessedParam = req.query.not_assessed as string | undefined;
+    const notAssessed: NotAssessedHandling = notAssessedParam
+      ? (notAssessedParam as NotAssessedHandling)
+      : await getDefaultNotAssessed();
 
     const skillIds = skillsParam ? skillsParam.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n)) : [];
     const roles = rolesParam ? rolesParam.split(',').map((r) => r.trim()).filter(Boolean) : [];

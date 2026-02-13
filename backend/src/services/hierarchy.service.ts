@@ -1,9 +1,8 @@
 import { query } from '../config/database.config';
+import { computeScore, getDefaultNotAssessed, ScoringMode, NotAssessedHandling } from './scoring.utils';
 
-// ── Types ──────────────────────────────────────────────────────────────
-
-export type ScoringMode = 'average' | 'team_readiness' | 'coverage';
-export type NotAssessedHandling = 'exclude' | 'count_as_zero';
+// Re-export types so existing imports from hierarchy.service still work
+export type { ScoringMode, NotAssessedHandling } from './scoring.utils';
 
 export interface HierarchyQueryParams {
   scoring_mode?: ScoringMode;
@@ -61,7 +60,7 @@ export class HierarchyService {
    * Build the full org hierarchy tree with aggregated skill scores.
    */
   async getHierarchy(params: HierarchyQueryParams): Promise<HierarchyNode[]> {
-    const notAssessed = params.not_assessed ?? await this.getDefaultNotAssessed();
+    const notAssessed = params.not_assessed ?? await getDefaultNotAssessed();
     const scoringMode = params.scoring_mode ?? 'average';
 
     // 1. Fetch raw data in parallel
@@ -176,35 +175,10 @@ export class HierarchyService {
         effective = assessed;
       }
 
-      let score: number | null = null;
-      if (effective.length > 0) {
-        switch (mode) {
-          case 'average':
-            score = effective.reduce((a, b) => a + b, 0) / effective.length;
-            break;
-          case 'team_readiness':
-            score = this.percentile(effective, 25);
-            break;
-          case 'coverage':
-            score = (effective.filter(s => s >= 70).length / effective.length) * 100;
-            break;
-        }
-        score = Math.round(score * 10) / 10; // 1 decimal place
-      }
+      const score = computeScore(effective, mode);
 
       return { skillId: skill.id, skillName: skill.name, score, assessedCount, totalCount };
     });
-  }
-
-  /** Compute the p-th percentile (0-100) using linear interpolation. */
-  private percentile(sorted: number[], p: number): number {
-    const vals = [...sorted].sort((a, b) => a - b);
-    if (vals.length === 1) return vals[0];
-    const rank = (p / 100) * (vals.length - 1);
-    const lower = Math.floor(rank);
-    const upper = Math.ceil(rank);
-    if (lower === upper) return vals[lower];
-    return vals[lower] + (vals[upper] - vals[lower]) * (rank - lower);
   }
 
   // ── DB queries ─────────────────────────────────────────────────────
@@ -252,20 +226,7 @@ export class HierarchyService {
     return result.rows;
   }
 
-  private async getDefaultNotAssessed(): Promise<NotAssessedHandling> {
-    try {
-      const result = await query(
-        `SELECT value FROM app_settings WHERE key = 'not_assessed_handling'`,
-      );
-      if (result.rows.length > 0) {
-        const val = result.rows[0].value;
-        if (val?.mode === 'count_as_zero') return 'count_as_zero';
-      }
-    } catch {
-      // Table may not exist yet — fall back to default
-    }
-    return 'exclude';
-  }
+  // getDefaultNotAssessed is now imported from scoring.utils
 }
 
 export const hierarchyService = new HierarchyService();
