@@ -142,6 +142,20 @@ function DashboardContent() {
     filters.setManagerId(managerId);
   }, [filters]);
 
+  // Build current view state for saved views
+  const currentViewState: ViewState = {
+    scoringMode: filters.scoringMode,
+    skills: filters.skills,
+    roles: filters.roles,
+    managerId: filters.managerId,
+    notAssessed: filters.notAssessed,
+  };
+
+  const handleManualRefresh = useCallback(() => {
+    dismissBanner();
+    manualRefresh();
+  }, [dismissBanner, manualRefresh]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -159,20 +173,6 @@ function DashboardContent() {
       </div>
     );
   }
-
-  // Build current view state for saved views
-  const currentViewState: ViewState = {
-    scoringMode: filters.scoringMode,
-    skills: filters.skills,
-    roles: filters.roles,
-    managerId: filters.managerId,
-    notAssessed: filters.notAssessed,
-  };
-
-  const handleManualRefresh = useCallback(() => {
-    dismissBanner();
-    manualRefresh();
-  }, [dismissBanner, manualRefresh]);
 
   return (
     <div className="min-h-screen bg-gray-50">
