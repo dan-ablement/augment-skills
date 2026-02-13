@@ -110,7 +110,7 @@ export function FilterPanel({
   // Save not_assessed setting to backend (admin only)
   const saveNotAssessed = useCallback(async (value: NotAssessedHandling) => {
     try {
-      await api.put('/settings/not_assessed_default', { value });
+      await api.put('/settings/not_assessed_handling', { value: { mode: value } });
       setNotAssessedSaved(true);
       setTimeout(() => setNotAssessedSaved(false), 2000);
     } catch (err) {
