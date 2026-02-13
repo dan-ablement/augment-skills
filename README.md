@@ -4,10 +4,11 @@ A Learning Management System (LMS) focused on tracking go-to-market (GTM) readin
 
 ## 🌐 Deployed Application
 
-The application is live on Google Cloud Platform:
+The application is deployed as a single Docker image on Google Cloud Platform:
 
-- **Frontend**: https://augment-skills-frontend-656706478564.us-central1.run.app
-- **Backend API**: https://augment-skills-backend-656706478564.us-central1.run.app
+- **Application**: https://augment-skills-656706478564.us-central1.run.app
+
+A single Express server serves both the API (`/api/v1/*`) and the Next.js frontend on port 3001.
 
 ## 🎯 Overview
 
@@ -59,11 +60,12 @@ The MVP focuses on proving the core value proposition with minimal complexity:
 - **Cache/Sessions**: Redis 7+
 - **Local Development**: Docker Compose
 
-**GCP Production Deployment**:
-- **Compute**: Cloud Run (frontend and backend services)
+**Deployment**:
+- **Docker**: Single image (`docker build -t augment-skills .`) — serves API + frontend on port 3001
+- **Compute**: Cloud Run (single service)
 - **Database**: Cloud SQL (PostgreSQL) with private IP
 - **Cache/Sessions**: Memorystore (Redis) for session management
-- **Networking**: VPC Connector for private networking between services
+- **Networking**: VPC Connector for private networking
 
 **Why This Stack?**
 - ✅ **Modular**: Easy to add new data source integrations
