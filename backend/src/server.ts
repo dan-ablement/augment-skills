@@ -16,9 +16,11 @@ import { errorHandler } from './middleware/error.middleware';
 // Import routes
 import authRoutes from './routes/auth.routes';
 import employeeRoutes from './routes/employee.routes';
+import employeeSkillsRoutes from './routes/employee-skills.routes';
 import skillRoutes from './routes/skill.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import importRoutes from './routes/import.routes';
+import validationEventsRoutes from './routes/validation-events.routes';
 
 // Load environment variables
 dotenv.config();
@@ -97,9 +99,11 @@ app.get('/health', (_req, res) => {
 const API_PREFIX = appConfig.apiPrefix;
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/employees`, employeeRoutes);
+app.use(`${API_PREFIX}/employees`, employeeSkillsRoutes);
 app.use(`${API_PREFIX}/skills`, skillRoutes);
 app.use(`${API_PREFIX}/dashboard`, dashboardRoutes);
 app.use(`${API_PREFIX}/import`, importRoutes);
+app.use(`${API_PREFIX}/validation-events`, validationEventsRoutes);
 
 // 404 handler
 app.use((_req, res) => {
