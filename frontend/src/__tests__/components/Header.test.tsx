@@ -128,6 +128,9 @@ describe('Header', () => {
       fireEvent.click(adminButton);
 
       expect(screen.getByText('Employees')).toBeInTheDocument();
+      expect(screen.getByText('Skills')).toBeInTheDocument();
+      expect(screen.getByText('Archived Employees')).toBeInTheDocument();
+      expect(screen.getByText('Archived Skills')).toBeInTheDocument();
       expect(screen.getByText('Upload CSV')).toBeInTheDocument();
     });
 
@@ -138,6 +141,9 @@ describe('Header', () => {
       fireEvent.click(adminButton);
 
       expect(screen.getByText('Employees').closest('a')).toHaveAttribute('href', '/admin/employees');
+      expect(screen.getByText('Skills').closest('a')).toHaveAttribute('href', '/admin/skills');
+      expect(screen.getByText('Archived Employees').closest('a')).toHaveAttribute('href', '/admin/employees/archived');
+      expect(screen.getByText('Archived Skills').closest('a')).toHaveAttribute('href', '/admin/skills/archived');
       expect(screen.getByText('Upload CSV').closest('a')).toHaveAttribute('href', '/admin/employees/upload');
     });
 
