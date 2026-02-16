@@ -232,6 +232,17 @@ pg_dump -h localhost -U postgres augment_skills > backup.sql
 psql -h 127.0.0.1 -U augment_skills_user augment_skills < backup.sql
 ```
 
+### Step 6: Run Phase 3 Migration (Skills Archive Support)
+
+```bash
+# Local:
+docker exec -i augment-skills-db psql -U postgres -d augment_skills < database/migrations/004_skills_archive.sql
+
+# Production (Cloud SQL):
+gcloud sql connect augment-skills-db --user=augment_skills_user --database=augment_skills
+# Then paste contents of database/migrations/004_skills_archive.sql
+```
+
 ---
 
 ## 💰 Cost Estimate

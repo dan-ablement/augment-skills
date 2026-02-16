@@ -42,6 +42,8 @@ The application supports two authentication methods:
 - **CSV and PDF Export**: Export data reflecting current filters and scoring mode
 - **Auto-Refresh with Idle Detection**: Dashboard stays current without unnecessary polling
 - **Admin Settings**: Configurable color thresholds and "Not Assessed" handling
+- **Admin Employee Management**: Create, edit, and archive employees with restore capability
+- **Admin Skills Management**: Create, edit, and archive skills — archived skills are hidden from the dashboard
 - **Role-Based Permissions**: Non-admin users see only their permitted org subtree
 
 ## 🏗️ Architecture
@@ -151,6 +153,7 @@ docker run -p 3001:3001 --env-file .env augment-skills
 
 - **Phase 1**: Local setup, database schema, authentication (Google OAuth + admin), CSV/Google Sheets/Google Forms data import, heatmap dashboard, CSV export, GCP Cloud Run deployment
 - **Phase 2**: Hierarchical org drill-down, three scoring modes, multi-dimensional filtering, team isolation, saved views, CSV/PDF export with filters, auto-refresh, admin settings, role-based permissions, assessment snapshots
+- **Phase 3**: Admin panel enhancements — employee archive/restore, skills CRUD with archive/restore, admin navigation update
 
 ## 💰 Cost Estimate
 
