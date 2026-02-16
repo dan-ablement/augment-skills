@@ -31,12 +31,12 @@ router.get('/heatmap', async (req: Request, res: Response, next: NextFunction) =
     
     const employeesResult = await query(employeeQuery, employeeParams);
 
-    // Get all skills
-    let skillQuery = 'SELECT id, name, category FROM skills';
+    // Get all active skills
+    let skillQuery = 'SELECT id, name, category FROM skills WHERE is_active = TRUE';
     const skillParams: any[] = [];
-    
+
     if (category) {
-      skillQuery += ' WHERE category = $1';
+      skillQuery += ' AND category = $1';
       skillParams.push(category);
     }
     skillQuery += ' ORDER BY category, name';
@@ -141,7 +141,7 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
 
     // --- Overall (company-wide) metrics ---
     const overallEmployeeCount = await query('SELECT COUNT(*) FROM employees WHERE is_active = TRUE');
-    const overallSkillCount = await query('SELECT COUNT(*) FROM skills');
+    const overallSkillCount = await query('SELECT COUNT(*) FROM skills WHERE is_active = TRUE');
     const overallAssessmentCount = await query(
       'SELECT COUNT(*) FROM employee_skills es JOIN employees e ON es.employee_id = e.id WHERE e.is_active = TRUE'
     );
