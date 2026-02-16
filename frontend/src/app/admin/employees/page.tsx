@@ -127,6 +127,12 @@ export default function EmployeesPage() {
           <h2 className="text-2xl font-bold text-gray-900">Employees</h2>
           <div className="flex space-x-3">
             <button
+              onClick={() => router.push('/admin/employees/archived')}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+            >
+              View Archived
+            </button>
+            <button
               onClick={() => router.push('/admin/employees/new')}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
             >
