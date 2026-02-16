@@ -1,7 +1,7 @@
 -- Augment Skills Database Schema
 -- PostgreSQL 14+
 -- Created: January 2026
--- Updated: January 2026 - Added manager hierarchy and soft delete
+-- Updated: February 2026 - Added Phase 2 schema (saved views, app settings, assessment snapshots)
 
 -- ============================================
 -- TABLES
@@ -85,6 +85,38 @@ CREATE TABLE IF NOT EXISTS api_keys (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Create saved_views table (Phase 2)
+CREATE TABLE IF NOT EXISTS saved_views (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_email VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_shared BOOLEAN NOT NULL DEFAULT FALSE,
+  view_state JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create app_settings table (Phase 2)
+CREATE TABLE IF NOT EXISTS app_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key VARCHAR(255) NOT NULL UNIQUE,
+  value JSONB NOT NULL DEFAULT '{}',
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create assessment_snapshots table (Phase 2)
+CREATE TABLE IF NOT EXISTS assessment_snapshots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  skill_id INTEGER NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+  score DECIMAL(5,2) NOT NULL CHECK (score >= 0 AND score <= 100),
+  snapshot_date DATE NOT NULL,
+  manager_id_at_time INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -113,6 +145,16 @@ CREATE INDEX idx_observation_scores_competency ON observation_scores(competency)
 -- Indexes for api_keys (Phase 1)
 CREATE INDEX idx_api_keys_active ON api_keys(is_active) WHERE is_active = true;
 
+-- Indexes for saved_views (Phase 2)
+CREATE INDEX idx_saved_views_user_email ON saved_views(user_email);
+CREATE INDEX idx_saved_views_is_shared ON saved_views(is_shared) WHERE is_shared = true;
+
+-- Indexes for app_settings (Phase 2)
+CREATE INDEX idx_app_settings_key ON app_settings(key);
+
+-- Indexes for assessment_snapshots (Phase 2)
+CREATE INDEX idx_assessment_snapshots_employee_skill_date ON assessment_snapshots(employee_id, skill_id, snapshot_date);
+
 -- ============================================
 -- TRIGGERS
 -- ============================================
@@ -140,6 +182,12 @@ CREATE TRIGGER update_validation_events_updated_at BEFORE UPDATE ON validation_e
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE ON api_keys
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_saved_views_updated_at BEFORE UPDATE ON saved_views
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_app_settings_updated_at BEFORE UPDATE ON app_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================
@@ -218,6 +266,23 @@ VALUES (
   NULL
 )
 ON CONFLICT (key_hash) DO NOTHING;
+
+-- Insert default app_settings (Phase 2)
+INSERT INTO app_settings (key, value, updated_by)
+VALUES (
+  'color_thresholds',
+  '{"expert": 90, "proficient": 70, "developing": 50, "beginner": 25, "none": 0}'::JSONB,
+  'system'
+)
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO app_settings (key, value, updated_by)
+VALUES (
+  'not_assessed_handling',
+  '{"mode": "exclude"}'::JSONB,
+  'system'
+)
+ON CONFLICT (key) DO NOTHING;
 
 -- Insert sample validation events for john@augmentcode.com
 INSERT INTO validation_events (employee_id, event_type, event_source, event_timestamp, overall_score, passed, details_url, session_metadata)

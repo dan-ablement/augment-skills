@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config();
 
@@ -7,6 +8,9 @@ export const appConfig = {
   port: parseInt(process.env.PORT || '3001', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   apiPrefix: process.env.API_PREFIX || '/api/v1',
+
+  // Next.js frontend directory
+  nextDir: process.env.NEXT_DIR || path.join(__dirname, '../../../frontend'),
 
   // Database
   database: {
@@ -37,6 +41,9 @@ export const appConfig = {
   // CORS
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   corsCredentials: process.env.CORS_CREDENTIALS === 'true',
+
+  // Frontend URL (for OAuth redirects)
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
 
   // Google API
   googleCredentials: process.env.GOOGLE_APPLICATION_CREDENTIALS || './service-account-key.json',

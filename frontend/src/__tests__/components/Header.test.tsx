@@ -30,33 +30,93 @@ describe('Header', () => {
   describe('Rendering', () => {
     it('should render the header with title', () => {
       render(<Header />);
-
       expect(screen.getByText('Augment Skills')).toBeInTheDocument();
     });
 
     it('should render the MVP badge', () => {
       render(<Header />);
-
       expect(screen.getByText('MVP')).toBeInTheDocument();
     });
 
-    it('should render the Dashboard link', () => {
+    it('should render scoring mode buttons', () => {
       render(<Header />);
+      expect(screen.getByText('Average')).toBeInTheDocument();
+      expect(screen.getByText('Team Readiness')).toBeInTheDocument();
+      expect(screen.getByText('Coverage %')).toBeInTheDocument();
+    });
 
-      expect(screen.getByText('Dashboard')).toBeInTheDocument();
-      expect(screen.getByText('Dashboard').closest('a')).toHaveAttribute('href', '/dashboard');
+    it('should render the Collapse button', () => {
+      render(<Header />);
+      expect(screen.getByText('Collapse')).toBeInTheDocument();
+    });
+
+    it('should render the Filters button', () => {
+      render(<Header />);
+      expect(screen.getByText('Filters')).toBeInTheDocument();
+    });
+
+    it('should render the Export dropdown button', () => {
+      render(<Header />);
+      expect(screen.getByText('Export')).toBeInTheDocument();
+    });
+
+    it('should render the Views dropdown button', () => {
+      render(
+        <Header
+          currentViewState={{
+            scoringMode: 'average',
+            skills: [],
+            roles: [],
+            managerId: null,
+            notAssessed: 'exclude',
+          }}
+          onLoadView={() => {}}
+        />
+      );
+      expect(screen.getByText('Views')).toBeInTheDocument();
     });
 
     it('should render the Admin button', () => {
       render(<Header />);
-
       expect(screen.getByText('Admin')).toBeInTheDocument();
     });
 
     it('should render the Logout button', () => {
       render(<Header />);
-
       expect(screen.getByRole('button', { name: /logout/i })).toBeInTheDocument();
+    });
+  });
+
+  describe('Scoring Mode Toggle', () => {
+    it('should call onScoringModeChange when a scoring mode button is clicked', () => {
+      const mockOnScoringModeChange = jest.fn();
+      render(<Header onScoringModeChange={mockOnScoringModeChange} />);
+
+      fireEvent.click(screen.getByText('Team Readiness'));
+      expect(mockOnScoringModeChange).toHaveBeenCalledWith('team_readiness');
+
+      fireEvent.click(screen.getByText('Coverage %'));
+      expect(mockOnScoringModeChange).toHaveBeenCalledWith('coverage');
+    });
+  });
+
+  describe('Collapse Button', () => {
+    it('should call onCollapseAll when Collapse button is clicked', () => {
+      const mockOnCollapseAll = jest.fn();
+      render(<Header onCollapseAll={mockOnCollapseAll} />);
+
+      fireEvent.click(screen.getByText('Collapse'));
+      expect(mockOnCollapseAll).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Filters Button', () => {
+    it('should call onToggleFilterPanel when Filters button is clicked', () => {
+      const mockOnToggleFilterPanel = jest.fn();
+      render(<Header onToggleFilterPanel={mockOnToggleFilterPanel} />);
+
+      fireEvent.click(screen.getByText('Filters'));
+      expect(mockOnToggleFilterPanel).toHaveBeenCalledTimes(1);
     });
   });
 

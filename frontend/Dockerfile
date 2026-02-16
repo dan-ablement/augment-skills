@@ -1,3 +1,6 @@
+# DEPRECATED: Use the unified Dockerfile at the repo root instead.
+# This file is kept for reference only.
+
 # Build stage
 FROM node:18-alpine AS builder
 

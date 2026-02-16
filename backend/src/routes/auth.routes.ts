@@ -94,18 +94,18 @@ router.get(
   '/google/callback',
   (req: Request, res: Response, next: NextFunction) => {
     if (!isOAuthConfigured()) {
-      return res.redirect('/login?error=oauth_not_configured');
+      return res.redirect(`${appConfig.frontendUrl}/login?error=oauth_not_configured`);
     }
 
     passport.authenticate('google', { session: false }, (err: any, user: any) => {
       if (err) {
         logger.error('OAuth callback error:', err);
-        return res.redirect('/login?error=oauth_error');
+        return res.redirect(`${appConfig.frontendUrl}/login?error=oauth_error`);
       }
 
       if (!user) {
         logger.warn('OAuth callback: user not authorized');
-        return res.redirect('/login?error=not_authorized');
+        return res.redirect(`${appConfig.frontendUrl}/login?error=not_authorized`);
       }
 
       // Set session
@@ -115,11 +115,11 @@ router.get(
       req.session.save((saveErr) => {
         if (saveErr) {
           logger.error('Session save error:', saveErr);
-          return res.redirect('/login?error=session_error');
+          return res.redirect(`${appConfig.frontendUrl}/login?error=session_error`);
         }
 
         logger.info(`User logged in via OAuth: ${user.email}`);
-        return res.redirect('/dashboard');
+        return res.redirect(`${appConfig.frontendUrl}/dashboard`);
       });
     })(req, res, next);
   }

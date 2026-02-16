@@ -1,6 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { query } from '../config/database.config';
 import { requireAuth } from '../middleware/auth.middleware';
+import { hierarchyService, ScoringMode, NotAssessedHandling } from '../services/hierarchy.service';
+import { computeScore, getDefaultNotAssessed } from '../services/scoring.utils';
 
 const router = Router();
 
@@ -97,21 +99,162 @@ router.get('/heatmap', async (req: Request, res: Response, next: NextFunction) =
   }
 });
 
+// computeScore is now imported from scoring.utils
+
 /**
  * GET /api/v1/dashboard/summary
- * Get summary statistics for dashboard
+ * Get summary statistics for dashboard.
+ *
+ * Query params:
+ *   scoring_mode — "average" (default), "team_readiness", "coverage"
+ *   skills       — comma-separated skill IDs
+ *   roles        — comma-separated departments
+ *   manager_id   — filter to manager's subtree
+ *   not_assessed — "exclude" (default) or "count_as_zero"
  */
 router.get('/summary', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Get counts (only active employees)
-    const employeeCount = await query('SELECT COUNT(*) FROM employees WHERE is_active = TRUE');
-    const skillCount = await query('SELECT COUNT(*) FROM skills');
-    const assessmentCount = await query('SELECT COUNT(*) FROM employee_skills es JOIN employees e ON es.employee_id = e.id WHERE e.is_active = TRUE');
+    // --- Parse query params ---
+    const scoringMode = ((req.query.scoring_mode as string) || 'average') as ScoringMode;
+    const skillsParam = req.query.skills as string | undefined;
+    const rolesParam = req.query.roles as string | undefined;
+    const managerIdParam = req.query.manager_id as string | undefined;
+    const notAssessedParam = req.query.not_assessed as string | undefined;
+    const notAssessed: NotAssessedHandling = notAssessedParam
+      ? (notAssessedParam as NotAssessedHandling)
+      : await getDefaultNotAssessed();
 
-    // Get average score (only active employees)
-    const avgScore = await query('SELECT ROUND(AVG(es.score), 2) as avg FROM employee_skills es JOIN employees e ON es.employee_id = e.id WHERE e.is_active = TRUE');
+    const skillIds = skillsParam ? skillsParam.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n)) : [];
+    const roles = rolesParam ? rolesParam.split(',').map((r) => r.trim()).filter(Boolean) : [];
+    let managerId = managerIdParam ? parseInt(managerIdParam, 10) : null;
 
-    // Get score distribution (only active employees)
+    // Permission-based filtering: non-admin users see only their subtree
+    const isAdmin = req.session.user?.role === 'admin';
+    if (!isAdmin) {
+      const userEmployeeId = await getEmployeeIdForUser(req.session.user?.email);
+      if (userEmployeeId !== null) {
+        managerId = userEmployeeId;
+      }
+    }
+
+    const hasFilters = skillIds.length > 0 || roles.length > 0 || managerId !== null;
+
+    // --- Overall (company-wide) metrics ---
+    const overallEmployeeCount = await query('SELECT COUNT(*) FROM employees WHERE is_active = TRUE');
+    const overallSkillCount = await query('SELECT COUNT(*) FROM skills');
+    const overallAssessmentCount = await query(
+      'SELECT COUNT(*) FROM employee_skills es JOIN employees e ON es.employee_id = e.id WHERE e.is_active = TRUE'
+    );
+    const overallScoresResult = await query(
+      'SELECT es.score FROM employee_skills es JOIN employees e ON es.employee_id = e.id WHERE e.is_active = TRUE'
+    );
+    const overallScores = overallScoresResult.rows.map((r) => parseFloat(r.score));
+    const overallScore = computeScore(overallScores, scoringMode);
+
+    const overall = {
+      totalEmployees: parseInt(overallEmployeeCount.rows[0].count),
+      totalSkills: parseInt(overallSkillCount.rows[0].count),
+      totalAssessments: parseInt(overallAssessmentCount.rows[0].count),
+      score: overallScore,
+    };
+
+    // --- Filtered metrics ---
+    let filtered = { ...overall };
+
+    if (hasFilters) {
+      // Build employee filter conditions
+      const employeeConditions: string[] = ['e.is_active = TRUE'];
+      const employeeParams: any[] = [];
+      let paramIdx = 1;
+
+      // Filter by roles (departments)
+      if (roles.length > 0) {
+        employeeConditions.push(`e.department = ANY($${paramIdx})`);
+        employeeParams.push(roles);
+        paramIdx++;
+      }
+
+      // Filter by manager subtree using recursive CTE
+      if (managerId !== null) {
+        employeeConditions.push(`e.id IN (
+          WITH RECURSIVE subtree AS (
+            SELECT id FROM employees WHERE id = $${paramIdx}
+            UNION ALL
+            SELECT emp.id FROM employees emp JOIN subtree st ON emp.manager_id = st.id
+          )
+          SELECT id FROM subtree
+        )`);
+        employeeParams.push(managerId);
+        paramIdx++;
+      }
+
+      const employeeWhere = employeeConditions.join(' AND ');
+
+      // Count filtered employees
+      const filteredEmployeeCount = await query(
+        `SELECT COUNT(*) FROM employees e WHERE ${employeeWhere}`,
+        employeeParams
+      );
+
+      // Count filtered skills (if skills filter, count only those; otherwise all)
+      let filteredSkillCount: number;
+      if (skillIds.length > 0) {
+        const skResult = await query('SELECT COUNT(*) FROM skills WHERE id = ANY($1)', [skillIds]);
+        filteredSkillCount = parseInt(skResult.rows[0].count);
+      } else {
+        filteredSkillCount = overall.totalSkills;
+      }
+
+      // Build assessment query with skill filter
+      const assessmentConditions = [...employeeConditions];
+      const assessmentParams = [...employeeParams];
+      if (skillIds.length > 0) {
+        assessmentConditions.push(`es.skill_id = ANY($${paramIdx})`);
+        assessmentParams.push(skillIds);
+        paramIdx++;
+      }
+      const assessmentWhere = assessmentConditions.join(' AND ');
+
+      const filteredAssessmentCount = await query(
+        `SELECT COUNT(*) FROM employee_skills es JOIN employees e ON es.employee_id = e.id WHERE ${assessmentWhere}`,
+        assessmentParams
+      );
+
+      // Get filtered scores for scoring mode computation
+      const filteredScoresResult = await query(
+        `SELECT es.score FROM employee_skills es JOIN employees e ON es.employee_id = e.id WHERE ${assessmentWhere}`,
+        assessmentParams
+      );
+
+      let scores = filteredScoresResult.rows.map((r) => parseFloat(r.score));
+
+      // Handle not_assessed = count_as_zero
+      if (notAssessed === 'count_as_zero') {
+        // Count employees in filter that have NO assessment (for the filtered skill set)
+        const assessedEmployeeResult = await query(
+          `SELECT DISTINCT es.employee_id FROM employee_skills es JOIN employees e ON es.employee_id = e.id WHERE ${assessmentWhere}`,
+          assessmentParams
+        );
+        const assessedCount = assessedEmployeeResult.rows.length;
+        const totalFilteredEmployees = parseInt(filteredEmployeeCount.rows[0].count);
+        const unassessedCount = totalFilteredEmployees - assessedCount;
+        // Add zero scores for unassessed employees
+        for (let i = 0; i < unassessedCount; i++) {
+          scores.push(0);
+        }
+      }
+
+      const filteredScore = computeScore(scores, scoringMode);
+
+      filtered = {
+        totalEmployees: parseInt(filteredEmployeeCount.rows[0].count),
+        totalSkills: filteredSkillCount,
+        totalAssessments: parseInt(filteredAssessmentCount.rows[0].count),
+        score: filteredScore,
+      };
+    }
+
+    // --- Score distribution (company-wide) ---
     const distribution = await query(`
       SELECT
         CASE
@@ -128,7 +271,7 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
       ORDER BY level
     `);
 
-    // Get recent assessments (only active employees)
+    // --- Recent assessments (company-wide) ---
     const recentAssessments = await query(`
       SELECT
         CONCAT(e.first_name, ' ', e.last_name) as employee_name,
@@ -145,14 +288,98 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
 
     res.json({
       data: {
-        totalEmployees: parseInt(employeeCount.rows[0].count),
-        totalSkills: parseInt(skillCount.rows[0].count),
-        totalAssessments: parseInt(assessmentCount.rows[0].count),
-        averageScore: parseFloat(avgScore.rows[0].avg) || 0,
+        overall,
+        filtered,
+        hasFilters,
         scoreDistribution: distribution.rows,
         recentAssessments: recentAssessments.rows,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Look up the employee record for a non-admin user by email.
+ * Returns the employee ID (to scope to their subtree) or null if not found.
+ */
+async function getEmployeeIdForUser(email: string | undefined): Promise<number | null> {
+  if (!email) return null;
+  const result = await query(
+    'SELECT id FROM employees WHERE email = $1 AND is_active = TRUE LIMIT 1',
+    [email],
+  );
+  return result.rows.length > 0 ? result.rows[0].id : null;
+}
+
+/**
+ * GET /api/v1/dashboard/hierarchy
+ * Get org tree with aggregated skill scores per manager node.
+ * Supports scoring modes, skill/role filtering, subtree selection.
+ * Non-admin users are scoped to their own subtree.
+ */
+router.get('/hierarchy', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const scoringMode = (req.query.scoring_mode as string) || 'average';
+    const notAssessed = req.query.not_assessed as string | undefined;
+
+    // Validate scoring_mode
+    const validModes: ScoringMode[] = ['average', 'team_readiness', 'coverage'];
+    if (!validModes.includes(scoringMode as ScoringMode)) {
+      res.status(400).json({
+        error: `Invalid scoring_mode. Must be one of: ${validModes.join(', ')}`,
+      });
+      return;
+    }
+
+    // Validate not_assessed
+    if (notAssessed && notAssessed !== 'exclude' && notAssessed !== 'count_as_zero') {
+      res.status(400).json({
+        error: 'Invalid not_assessed. Must be "exclude" or "count_as_zero".',
+      });
+      return;
+    }
+
+    // Parse comma-separated skill IDs
+    const skillsParam = req.query.skills as string | undefined;
+    const skills = skillsParam
+      ? skillsParam.split(',').map(Number).filter(n => !isNaN(n))
+      : undefined;
+
+    // Parse comma-separated department/role values
+    const rolesParam = req.query.roles as string | undefined;
+    const roles = rolesParam
+      ? rolesParam.split(',').map(r => r.trim()).filter(Boolean)
+      : undefined;
+
+    // Parse optional manager_id
+    const managerIdParam = req.query.manager_id as string | undefined;
+    let managerId = managerIdParam ? parseInt(managerIdParam, 10) : undefined;
+    if (managerIdParam && (isNaN(managerId!) || managerId! <= 0)) {
+      res.status(400).json({ error: 'Invalid manager_id. Must be a positive integer.' });
+      return;
+    }
+
+    // Permission-based filtering: non-admin users see only their subtree
+    const isAdmin = req.session.user?.role === 'admin';
+    if (!isAdmin) {
+      const userEmployeeId = await getEmployeeIdForUser(req.session.user?.email);
+      if (userEmployeeId !== null) {
+        // Scope to user's subtree (override any requested manager_id)
+        managerId = userEmployeeId;
+      }
+    }
+
+    const tree = await hierarchyService.getHierarchy({
+      scoring_mode: scoringMode as ScoringMode,
+      skills: skills?.length ? skills : undefined,
+      roles: roles?.length ? roles : undefined,
+      manager_id: managerId,
+      not_assessed: notAssessed as NotAssessedHandling | undefined,
+    });
+
+    res.json({ data: tree });
   } catch (error) {
     next(error);
   }
