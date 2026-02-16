@@ -5,16 +5,11 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Header } from '@/components/Header';
 
-interface Employee {
+interface Skill {
   id: number;
-  first_name: string;
-  last_name: string;
-  full_name: string;
-  email: string;
-  title: string;
-  department: string;
-  manager_id: number | null;
-  manager_name: string;
+  name: string;
+  category: string | null;
+  description: string | null;
   is_active: boolean;
 }
 
@@ -25,31 +20,61 @@ interface Pagination {
   totalPages: number;
 }
 
-export default function EmployeesPage() {
+export default function SkillsPage() {
   const router = useRouter();
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [archivedCount, setArchivedCount] = useState(0);
 
-  const fetchEmployees = async (page: number = 1, search: string = '') => {
+  const fetchSkills = async (page: number = 1, search: string = '', category: string = '') => {
     try {
       const params = new URLSearchParams();
       params.append('page', page.toString());
       params.append('limit', '50');
-      if (search) params.append('search', search);
+      if (category) params.append('category', category);
 
-      const response = await api.get(`/employees?${params.toString()}`);
-      setEmployees(response.data.data);
+      const response = await api.get(`/skills?${params.toString()}`);
+      let data: Skill[] = response.data.data;
+
+      // Client-side search filter by name
+      if (search) {
+        const q = search.toLowerCase();
+        data = data.filter((s) => s.name.toLowerCase().includes(q));
+      }
+
+      setSkills(data);
       setPagination(response.data.pagination);
     } catch (err: any) {
       if (err.response?.status === 401) {
         router.push('/login');
       } else {
-        setError('Failed to load employees');
+        setError('Failed to load skills');
       }
+    }
+  };
+
+  const fetchArchivedCount = async () => {
+    try {
+      const response = await api.get('/skills?include_archived=true&limit=1000');
+      const all: Skill[] = response.data.data;
+      setArchivedCount(all.filter((s) => !s.is_active).length);
+    } catch {
+      // ignore
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/skills/categories');
+      setCategories(response.data.data || []);
+    } catch {
+      // ignore
     }
   };
 
@@ -61,12 +86,16 @@ export default function EmployeesPage() {
           router.push('/login');
           return;
         }
-        await fetchEmployees(currentPage, searchQuery);
+        await Promise.all([
+          fetchSkills(currentPage, searchQuery, selectedCategory),
+          fetchCategories(),
+          fetchArchivedCount(),
+        ]);
       } catch (err: any) {
         if (err.response?.status === 401) {
           router.push('/login');
         } else {
-          setError('Failed to load employees');
+          setError('Failed to load skills');
         }
       } finally {
         setIsLoading(false);
@@ -77,28 +106,40 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     if (!isLoading) {
-      fetchEmployees(currentPage, searchQuery);
+      fetchSkills(currentPage, searchQuery, selectedCategory);
     }
   }, [currentPage]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1);
-    fetchEmployees(1, searchQuery);
+    fetchSkills(1, searchQuery, selectedCategory);
   };
 
-  const handleDeactivate = async (id: number) => {
-    if (!confirm('Are you sure you want to deactivate this employee?')) return;
+  const handleCategoryChange = (cat: string) => {
+    setSelectedCategory(cat);
+    setCurrentPage(1);
+    fetchSkills(1, searchQuery, cat);
+  };
+
+  const handleArchive = async (id: number) => {
+    if (!confirm('Are you sure you want to archive this skill?')) return;
     try {
-      await api.delete(`/employees/${id}`);
-      fetchEmployees(currentPage, searchQuery);
-    } catch (err) {
-      alert('Failed to deactivate employee');
+      await api.delete(`/skills/${id}`);
+      fetchSkills(currentPage, searchQuery, selectedCategory);
+      fetchArchivedCount();
+    } catch {
+      alert('Failed to archive skill');
     }
   };
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+  };
+
+  const truncate = (text: string | null, max: number) => {
+    if (!text) return '-';
+    return text.length > max ? text.slice(0, max) + '…' : text;
   };
 
   if (isLoading) {
@@ -124,39 +165,43 @@ export default function EmployeesPage() {
       <Header />
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Employees</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Skills</h2>
           <div className="flex space-x-3">
             <button
-              onClick={() => router.push('/admin/employees/archived')}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
-            >
-              View Archived
-            </button>
-            <button
-              onClick={() => router.push('/admin/employees/new')}
+              onClick={() => router.push('/admin/skills/new')}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
             >
-              Add Employee
+              Add Skill
             </button>
             <button
-              onClick={() => router.push('/admin/employees/upload')}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+              onClick={() => router.push('/admin/skills/archived')}
+              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm font-medium"
             >
-              Upload CSV
+              View Archived{archivedCount > 0 ? ` (${archivedCount})` : ''}
             </button>
           </div>
         </div>
 
-        {/* Search */}
+        {/* Search and Category Filter */}
         <form onSubmit={handleSearch} className="mb-6">
           <div className="flex space-x-3">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, email, or department..."
+              placeholder="Search by name..."
               className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             />
+            <select
+              value={selectedCategory}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
             <button
               type="submit"
               className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm font-medium"
@@ -172,42 +217,30 @@ export default function EmployeesPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manager</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {employees.map((employee) => (
-                <tr key={employee.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{employee.full_name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.title}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.department}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.manager_name?.trim() || '-'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${employee.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {employee.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
+              {skills.map((skill) => (
+                <tr key={skill.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{skill.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{skill.category || '-'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{truncate(skill.description, 60)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     <button
-                      onClick={() => router.push(`/admin/employees/${employee.id}/edit`)}
+                      onClick={() => router.push(`/admin/skills/${skill.id}/edit`)}
                       className="text-blue-600 hover:text-blue-900"
                     >
                       Edit
                     </button>
-                    {employee.is_active && (
-                      <button
-                        onClick={() => handleDeactivate(employee.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Deactivate
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleArchive(skill.id)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Archive
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -219,7 +252,7 @@ export default function EmployeesPage() {
         {pagination && pagination.totalPages > 1 && (
           <div className="mt-6 flex items-center justify-between">
             <div className="text-sm text-gray-700">
-              Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} total employees)
+              Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} total skills)
             </div>
             <div className="flex space-x-2">
               <button
@@ -252,4 +285,3 @@ export default function EmployeesPage() {
     </div>
   );
 }
-

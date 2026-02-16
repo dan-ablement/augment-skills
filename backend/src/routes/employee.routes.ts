@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { query } from '../config/database.config';
-import { requireAuth } from '../middleware/auth.middleware';
+import { requireAuth, requireAdmin } from '../middleware/auth.middleware';
 import { notFound, badRequest } from '../middleware/error.middleware';
 import { appConfig } from '../config/app.config';
 
@@ -265,6 +265,38 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     );
 
     res.json({ message: 'Employee deactivated successfully', data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/v1/employees/:id/restore
+ * Restore an archived employee (admin only)
+ */
+router.put('/:id/restore', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    // Check if employee exists
+    const existingEmployee = await query('SELECT * FROM employees WHERE id = $1', [id]);
+
+    if (existingEmployee.rows.length === 0) {
+      return next(notFound('Employee not found'));
+    }
+
+    if (existingEmployee.rows[0].is_active) {
+      return next(badRequest('Employee is already active'));
+    }
+
+    const result = await query(
+      `UPDATE employees SET is_active = true, updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    res.json({ message: 'Employee restored successfully', data: result.rows[0] });
   } catch (error) {
     next(error);
   }
