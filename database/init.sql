@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS skills (
   name VARCHAR(255) UNIQUE NOT NULL,
   category VARCHAR(255),
   description TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -131,6 +132,7 @@ CREATE INDEX idx_employees_active ON employees(is_active);
 CREATE INDEX idx_employees_name ON employees(last_name, first_name);
 CREATE INDEX idx_skills_name ON skills(name);
 CREATE INDEX idx_skills_category ON skills(category);
+CREATE INDEX idx_skills_active ON skills(is_active);
 
 -- Indexes for validation_events (Phase 1)
 CREATE INDEX idx_validation_events_employee ON validation_events(employee_id);
@@ -400,4 +402,5 @@ SELECT
 FROM skills s
 LEFT JOIN employee_skills es ON s.id = es.skill_id
 LEFT JOIN employees e ON es.employee_id = e.id AND e.is_active = TRUE
+WHERE s.is_active = TRUE
 GROUP BY s.id, s.name, s.category;
