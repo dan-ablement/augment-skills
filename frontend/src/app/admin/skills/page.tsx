@@ -230,7 +230,7 @@ export default function SkillsPage() {
                   <td className="px-6 py-4 text-sm text-gray-500">{truncate(skill.description, 60)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     <button
-                      onClick={() => router.push(`/admin/skills/${skill.id}/edit`)}
+                      onClick={() => router.push(`/admin/skills/${skill.id}`)}
                       className="text-blue-600 hover:text-blue-900"
                     >
                       Edit

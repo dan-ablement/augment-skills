@@ -195,7 +195,7 @@ export default function EmployeesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     <button
-                      onClick={() => router.push(`/admin/employees/${employee.id}/edit`)}
+                      onClick={() => router.push(`/admin/employees/${employee.id}`)}
                       className="text-blue-600 hover:text-blue-900"
                     >
                       Edit
