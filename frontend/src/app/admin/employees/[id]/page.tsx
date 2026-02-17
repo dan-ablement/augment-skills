@@ -7,9 +7,9 @@ import { Header } from '@/components/Header';
 
 interface Manager {
   id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
+  full_name: string;
+  title: string;
+  department: string;
 }
 
 interface EmployeeForm {
@@ -223,7 +223,7 @@ export default function EmployeeEditPage() {
               <option value="">None (CEO)</option>
               {managers.map((manager) => (
                 <option key={manager.id} value={manager.id}>
-                  {manager.first_name} {manager.last_name} ({manager.email})
+                  {manager.full_name} — {manager.title}
                 </option>
               ))}
             </select>
