@@ -123,10 +123,10 @@ open http://localhost:3000
 ### Running Tests
 
 ```bash
-# Backend tests (82 tests)
+# Backend tests (101 tests)
 cd backend && npx jest --verbose
 
-# Frontend tests (37 tests)
+# Frontend tests (76 tests)
 cd frontend && npx jest --verbose
 ```
 
@@ -153,7 +153,7 @@ docker run -p 3001:3001 --env-file .env augment-skills
 
 - **Phase 1**: Local setup, database schema, authentication (Google OAuth + admin), CSV/Google Sheets/Google Forms data import, heatmap dashboard, CSV export, GCP Cloud Run deployment
 - **Phase 2**: Hierarchical org drill-down, three scoring modes, multi-dimensional filtering, team isolation, saved views, CSV/PDF export with filters, auto-refresh, admin settings, role-based permissions, assessment snapshots
-- **Phase 3**: Admin panel enhancements — employee archive/restore, skills CRUD with archive/restore, admin navigation update
+- **Phase 3**: Admin panel enhancements — employee archive/restore, skills CRUD with archive/restore, admin navigation update, bug fixes (edit routing, table overflow, manager dropdown)
 
 ## 💰 Cost Estimate
 
