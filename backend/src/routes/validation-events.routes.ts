@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { query, getClient } from '../config/database.config';
 import { requireApiKey } from '../middleware/apikey.middleware';
+import { requireAuth, requireAdmin } from '../middleware/auth.middleware';
 import { notFound, badRequest } from '../middleware/error.middleware';
 import { appConfig } from '../config/app.config';
 import { logger } from '../config/logger.config';
@@ -116,6 +117,94 @@ router.post('/', requireApiKey, async (req: Request, res: Response, next: NextFu
     next(error);
   } finally {
     client.release();
+  }
+});
+
+/**
+ * GET /api/v1/validation-events
+ * Get all validation events across all employees (admin only)
+ * Supports pagination, filtering by event_type, event_source, and search by employee name/email
+ */
+router.get('/', requireAuth, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(
+      parseInt(req.query.limit as string) || appConfig.pagination.defaultPageSize,
+      appConfig.pagination.maxPageSize
+    );
+    const offset = (page - 1) * limit;
+    const event_type = req.query.event_type as string | undefined;
+    const event_source = req.query.event_source as string | undefined;
+    const search = req.query.search as string | undefined;
+
+    // Build WHERE clause
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (event_type) {
+      params.push(event_type);
+      conditions.push(`ve.event_type = $${params.length}`);
+    }
+
+    if (event_source) {
+      params.push(event_source);
+      conditions.push(`ve.event_source = $${params.length}`);
+    }
+
+    if (search) {
+      params.push(`%${search}%`);
+      conditions.push(`(CONCAT(e.first_name, ' ', e.last_name) ILIKE $${params.length} OR e.email ILIKE $${params.length})`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Get total count
+    const countResult = await query(
+      `SELECT COUNT(*) FROM validation_events ve
+       JOIN employees e ON ve.employee_id = e.id
+       ${whereClause}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0].count);
+
+    // Get events with pagination
+    const eventsResult = await query(
+      `SELECT ve.id, ve.employee_id, CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+              e.email AS employee_email, ve.event_type, ve.event_source, ve.event_timestamp,
+              ve.overall_score, ve.passed, ve.details_url, ve.session_metadata, ve.created_at
+       FROM validation_events ve
+       JOIN employees e ON ve.employee_id = e.id
+       ${whereClause}
+       ORDER BY ve.event_timestamp DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    );
+
+    // Fetch observation scores for each event
+    const events = await Promise.all(
+      eventsResult.rows.map(async (event) => {
+        const scoresResult = await query(
+          'SELECT competency, score, context FROM observation_scores WHERE validation_event_id = $1',
+          [event.id]
+        );
+        return {
+          ...event,
+          competency_scores: scoresResult.rows,
+        };
+      })
+    );
+
+    res.json({
+      data: events,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    next(error);
   }
 });
 
